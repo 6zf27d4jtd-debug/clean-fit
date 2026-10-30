@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
+  // Prove dall'iPhone sulla stessa rete Wi-Fi (npm run dev:lan)
+  allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.*.*.*", "*.local"],
   partialPrefetching: true,
   turbopack: {
     rules: {

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useUser } from "@/components/auth-provider";
 import { HangerIcon, PlusIcon, SparkleIcon, TagIcon, UserIcon } from "@/components/icons";
 
 const TABS = [
@@ -18,6 +19,8 @@ function isActive(pathname: string, href: string) {
 
 export function BottomNav() {
   const pathname = usePathname();
+  const user = useUser();
+  if (!user) return null;
 
   return (
     <nav

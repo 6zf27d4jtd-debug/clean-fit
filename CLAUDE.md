@@ -16,8 +16,18 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - Supabase (piano gratuito): auth email + password, Postgres con RLS (ogni utente vede solo i propri dati), Storage per le foto.
 - Rimozione sfondo nel browser con `@imgly/background-removal` (AGPL, ok per questo uso). Foto ridotte a ~1024px prima dell'elaborazione, elaborate una alla volta in coda.
 - Foto compresse prima dell'upload (~100–200 KB l'una) per restare nel GB gratuito.
-- Deploy su Vercel; le prove su iPhone si fanno dal link HTTPS di Vercel.
+- Deploy su Vercel (non ancora collegato). Nel frattempo prove in locale: `npm run dev:lan` e dall'iPhone `http://<IP-del-Mac>:3000` sulla stessa rete Wi-Fi (`allowedDevOrigins` in `next.config.ts`).
 - PWA: `src/app/manifest.ts`, icone in `public/icons/` generate da `scripts/generate-icons.mjs`. Service worker (serwist) solo nella fase di rifinitura, per la consultazione offline.
+
+## Dati e accesso (Fase 1)
+- App lato client: i dati si leggono dal browser con `getSupabase()` (`src/lib/supabase/client.ts`), protetti dalle RLS. Niente `proxy.ts` (ex middleware) per ora.
+- `AuthProvider` (in `layout.tsx`) gestisce la sessione: chi non ha fatto l'accesso va su `/accedi`, chi l'ha fatto non la vede. `useUser()` restituisce l'utente.
+- Variabili: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (modello in `.env.example`).
+- Schema in `supabase/migrations/` (eseguito a mano dall'SQL Editor di Supabase). Tabelle: profiles, categories, groupings, items, item_groupings, outfits, outfit_items; chiavi esterne composte (id, user_id) per impedire collegamenti tra utenti diversi.
+- Un trigger su `auth.users` crea il profilo e le 9 categorie predefinite.
+- Foto nel bucket privato `capi`, percorso `<user_id>/<item_id>/...`; policy Storage per cartella utente.
+- Eliminazione account: il client cancella le foto, poi chiama la funzione `delete_account()` che elimina l'utente (i dati spariscono a cascata).
+- "Confirm email" disattivato su Supabase: l'SMTP gratuito di Supabase invia email solo ai membri del progetto. Il recupero password richiederà un SMTP proprio (più avanti).
 
 ## Prodotto
 - Multiutente: ogni persona ha il suo account e i suoi capi, separati. L'app viene condivisa via link.
@@ -42,7 +52,7 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 
 ## Stato delle fasi
 - [x] Fase 0 — Base: progetto, navigazione, tema, PWA, icona
-- [ ] Fase 1 — Account e dati (Supabase)
+- [x] Fase 1 — Account e dati (Supabase)
 - [ ] Fase 2 — Aggiungi capo (foto, scontorno, compressione)
 - [ ] Fase 3 — Consultazione (home, categoria, dettaglio, gruppi, modifica)
 - [ ] Fase 4 — Import multiplo

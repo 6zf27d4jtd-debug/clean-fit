@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import { AuthProvider } from "@/components/auth-provider";
 import { BottomNav } from "@/components/bottom-nav";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
@@ -41,8 +42,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-dvh font-sans">
-        <main className="mx-auto min-h-dvh max-w-md px-5 pt-safe pb-nav">{children}</main>
-        <BottomNav />
+        <AuthProvider>
+          <main className="mx-auto min-h-dvh max-w-md px-5 pt-safe pb-nav">{children}</main>
+          <BottomNav />
+        </AuthProvider>
       </body>
     </html>
   );
