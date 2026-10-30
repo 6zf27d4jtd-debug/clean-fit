@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CropEditor } from "@/components/crop-editor";
+import { EraserEditor } from "@/components/eraser-editor";
 import { PlusIcon } from "@/components/icons";
 import { removeBackground, type RemovalEvent } from "@/lib/background-removal";
 import { cleanCutout } from "@/lib/cutout-cleanup";
@@ -17,7 +18,7 @@ type Source = { file: File; originalUrl: string; crop: CropRect };
 type Photo =
   | { status: "vuota" }
   | ({ status: "in coda" | "elaborazione"; progress?: string } & Source)
-  | ({ status: "pronta"; cutout: Blob; cutoutUrl: string } & Source)
+  | ({ status: "pronta"; cutout: Blob; cutoutUrl: string; erased?: boolean } & Source)
   | ({ status: "errore"; message: string } & Source);
 
 /** Foto aperta nell'editor di ritaglio; `crop` c'è quando si ritaglia di nuovo una foto già scontornata. */
@@ -28,6 +29,7 @@ const EMPTY: Photo = { status: "vuota" };
 export function AddItem() {
   const [photos, setPhotos] = useState<Record<Side, Photo>>({ fronte: EMPTY, retro: EMPTY });
   const [cropping, setCropping] = useState<Cropping | null>(null);
+  const [erasing, setErasing] = useState<Side | null>(null);
   // Le foto vengono scontornate una alla volta, nell'ordine in cui sono state confermate.
   const queue = useRef<Promise<void>>(Promise.resolve());
   // Versione di ogni lato: se la foto viene cambiata o tolta, il risultato vecchio viene scartato.
@@ -70,6 +72,13 @@ export function AddItem() {
   function recrop(side: Side) {
     const photo = photos[side];
     if (photo.status === "vuota") return;
+    // Ritagliare rifà lo scontorno da capo: i ritocchi con la gomma andrebbero persi
+    if (
+      photo.status === "pronta" &&
+      photo.erased &&
+      !window.confirm("Ritagliando di nuovo, lo scontorno viene rifatto e i ritocchi con la gomma andranno persi. Continuare?")
+    )
+      return;
     setCropping({ side, file: photo.file, originalUrl: photo.originalUrl, crop: photo.crop });
   }
 
@@ -115,6 +124,15 @@ export function AddItem() {
     });
   }
 
+  /** Sostituisce lo scontornato con la versione ritoccata con la gomma. */
+  function confirmErase(side: Side, cutout: Blob) {
+    setErasing(null);
+    const photo = photos[side];
+    if (photo.status !== "pronta") return;
+    revoke(photo.cutoutUrl);
+    setPhotos((prev) => ({ ...prev, [side]: { ...photo, cutout, cutoutUrl: objectUrl(cutout), erased: true } }));
+  }
+
   function retry(side: Side) {
     const photo = photos[side];
     if (photo.status !== "errore") return;
@@ -144,6 +162,7 @@ export function AddItem() {
             photo={photos[side]}
             onChoose={(file) => openCrop(side, file)}
             onRecrop={() => recrop(side)}
+            onErase={() => setErasing(side)}
             onRetry={() => retry(side)}
             onRemove={() => remove(side)}
           />
@@ -160,6 +179,15 @@ export function AddItem() {
           onConfirm={confirmCrop}
         />
       )}
+
+      {erasing && photos[erasing].status === "pronta" && (
+        <EraserEditor
+          image={photos[erasing].cutout}
+          label={LABELS[erasing]}
+          onCancel={() => setErasing(null)}
+          onConfirm={(cutout) => confirmErase(erasing, cutout)}
+        />
+      )}
     </div>
   );
 }
@@ -170,6 +198,7 @@ function PhotoSlot({
   photo,
   onChoose,
   onRecrop,
+  onErase,
   onRetry,
   onRemove,
 }: {
@@ -178,6 +207,7 @@ function PhotoSlot({
   photo: Photo;
   onChoose: (file: File) => void;
   onRecrop: () => void;
+  onErase: () => void;
   onRetry: () => void;
   onRemove: () => void;
 }) {
@@ -245,7 +275,10 @@ function PhotoSlot({
       {(photo.status === "pronta" || photo.status === "errore") && (
         <div className="mt-1 grid grid-cols-2">
           {photo.status === "pronta" ? (
-            <SlotButton onClick={onRecrop}>Ritaglia</SlotButton>
+            <>
+              <SlotButton onClick={onRecrop}>Ritaglia</SlotButton>
+              <SlotButton onClick={onErase}>Gomma</SlotButton>
+            </>
           ) : (
             <SlotButton onClick={onRetry}>Riprova</SlotButton>
           )}
