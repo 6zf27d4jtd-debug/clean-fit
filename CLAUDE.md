@@ -15,7 +15,8 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 ## Stack
 - Next.js 16 (App Router, `src/`, `cacheComponents` attivo) + React 19 + TypeScript + Tailwind CSS 4.
 - Supabase (piano gratuito): auth email + password, Postgres con RLS (ogni utente vede solo i propri dati), Storage per le foto.
-- Rimozione sfondo nel browser con `@imgly/background-removal` (AGPL, ok per questo uso). Foto ridotte a ~1024px prima dell'elaborazione, elaborate una alla volta in coda.
+- Rimozione sfondo nel browser con `@imgly/background-removal`, tutta dentro `src/lib/background-removal.ts` (unico file da cambiare per sostituire il motore). Foto ridotte a ~1024px prima dell'elaborazione, elaborate una alla volta in coda. BiRefNet_lite (transformers.js) provato e scartato: `std::bad_alloc` sia su WebGPU sia su WASM già sul Mac.
+- Licenza di `@imgly/background-removal`: AGPL-3.0. Va bene finché l'app è gratuita; da rivedere (licenza commerciale img.ly o altro motore) se diventa a pagamento.
 - Foto compresse prima dell'upload (~100–200 KB l'una) per restare nel GB gratuito.
 - Deploy su Vercel (non ancora collegato). Nel frattempo prove in locale: `npm run dev:lan` e dall'iPhone `http://<IP-del-Mac>:3000` sulla stessa rete Wi-Fi (`allowedDevOrigins` in `next.config.ts`). In locale usare `localhost`, non `127.0.0.1` (bloccato dal dev server).
 - PWA: `src/app/manifest.ts`, icone in `public/icons/` generate da `scripts/generate-icons.mjs`. Service worker (serwist) solo nella fase di rifinitura, per la consultazione offline.
