@@ -56,9 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  if (state.status === "loading" || redirectTo) return <Splash />;
+  // Le pagine restano montate (anche nascoste) così Next.js può validarle; caricano i dati solo con un utente.
+  const waiting = state.status === "loading" || redirectTo !== null;
 
-  return <AuthContext.Provider value={state.user}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={waiting ? null : state.user}>
+      {waiting && <Splash />}
+      <div hidden={waiting}>{children}</div>
+    </AuthContext.Provider>
+  );
 }
 
 /** Utente collegato; null solo nelle pagine pubbliche. */

@@ -16,12 +16,12 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - Supabase (piano gratuito): auth email + password, Postgres con RLS (ogni utente vede solo i propri dati), Storage per le foto.
 - Rimozione sfondo nel browser con `@imgly/background-removal` (AGPL, ok per questo uso). Foto ridotte a ~1024px prima dell'elaborazione, elaborate una alla volta in coda.
 - Foto compresse prima dell'upload (~100–200 KB l'una) per restare nel GB gratuito.
-- Deploy su Vercel (non ancora collegato). Nel frattempo prove in locale: `npm run dev:lan` e dall'iPhone `http://<IP-del-Mac>:3000` sulla stessa rete Wi-Fi (`allowedDevOrigins` in `next.config.ts`).
+- Deploy su Vercel (non ancora collegato). Nel frattempo prove in locale: `npm run dev:lan` e dall'iPhone `http://<IP-del-Mac>:3000` sulla stessa rete Wi-Fi (`allowedDevOrigins` in `next.config.ts`). In locale usare `localhost`, non `127.0.0.1` (bloccato dal dev server).
 - PWA: `src/app/manifest.ts`, icone in `public/icons/` generate da `scripts/generate-icons.mjs`. Service worker (serwist) solo nella fase di rifinitura, per la consultazione offline.
 
 ## Dati e accesso (Fase 1)
 - App lato client: i dati si leggono dal browser con `getSupabase()` (`src/lib/supabase/client.ts`), protetti dalle RLS. Niente `proxy.ts` (ex middleware) per ora.
-- `AuthProvider` (in `layout.tsx`) gestisce la sessione: chi non ha fatto l'accesso va su `/accedi`, chi l'ha fatto non la vede. `useUser()` restituisce l'utente.
+- `AuthProvider` (in `layout.tsx`) gestisce la sessione: chi non ha fatto l'accesso va su `/accedi`, chi l'ha fatto non la vede. `useUser()` restituisce l'utente. Le pagine restano sempre montate (nascoste durante il caricamento) per la validazione "instant navigation" di Next 16: i componenti caricano dati solo quando `useUser()?.id` esiste.
 - Variabili: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local` (modello in `.env.example`).
 - Schema in `supabase/migrations/` (eseguito a mano dall'SQL Editor di Supabase). Tabelle: profiles, categories, groupings, items, item_groupings, outfits, outfit_items; chiavi esterne composte (id, user_id) per impedire collegamenti tra utenti diversi.
 - Un trigger su `auth.users` crea il profilo e le 9 categorie predefinite.

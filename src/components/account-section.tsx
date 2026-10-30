@@ -7,24 +7,24 @@ import { getSupabase, PHOTO_BUCKET } from "@/lib/supabase/client";
 const sectionTitle = "text-[13px] font-medium tracking-wide text-muted uppercase";
 
 export function RecentDaysSetting() {
-  const user = useUser();
+  const userId = useUser()?.id;
   const [days, setDays] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
     getSupabase()
       .from("profiles")
       .select("recent_days")
-      .eq("id", user.id)
+      .eq("id", userId)
       .single()
       .then(({ data }) => setDays(data?.recent_days ?? 7));
-  }, [user]);
+  }, [userId]);
 
   async function change(delta: number) {
-    if (days === null || !user) return;
+    if (days === null || !userId) return;
     const next = Math.min(90, Math.max(0, days + delta));
     setDays(next);
-    await getSupabase().from("profiles").update({ recent_days: next }).eq("id", user.id);
+    await getSupabase().from("profiles").update({ recent_days: next }).eq("id", userId);
   }
 
   return (

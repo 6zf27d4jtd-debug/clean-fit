@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useUser } from "@/components/auth-provider";
 import { PageHeader } from "@/components/page-header";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category } from "@/lib/types";
@@ -14,8 +15,10 @@ function countLabel(count: number) {
 export function WardrobeHome() {
   const [categories, setCategories] = useState<CategoryWithCount[] | null>(null);
   const [error, setError] = useState(false);
+  const userId = useUser()?.id;
 
   useEffect(() => {
+    if (!userId) return;
     getSupabase()
       .from("categories")
       .select("id, name, role, position, items(count)")
@@ -24,7 +27,7 @@ export function WardrobeHome() {
         if (error) setError(true);
         else setCategories(data as CategoryWithCount[]);
       });
-  }, []);
+  }, [userId]);
 
   const total = categories?.reduce((sum, category) => sum + (category.items[0]?.count ?? 0), 0);
 
