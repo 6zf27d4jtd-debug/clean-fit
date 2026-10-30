@@ -1,12 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useUser } from "@/components/auth-provider";
 import { CropEditor } from "@/components/crop-editor";
 import { EraserEditor } from "@/components/eraser-editor";
 import { PlusIcon } from "@/components/icons";
+import { EMPTY_DETAILS, ItemDetails, type ItemDetailsValue } from "@/components/item-details";
 import { removeBackground, type RemovalEvent } from "@/lib/background-removal";
 import { cleanCutout } from "@/lib/cutout-cleanup";
-import { canvasToBlob, downscale, type CropRect } from "@/lib/photo";
+import { saveItem } from "@/lib/items";
+import { canvasToBlob, compressJpeg, downscale, type CropRect } from "@/lib/photo";
+import { retouch } from "@/lib/retouch";
 
 type Side = "fronte" | "retro";
 
@@ -18,7 +23,8 @@ type Source = { file: File; originalUrl: string; crop: CropRect };
 type Photo =
   | { status: "vuota" }
   | ({ status: "in coda" | "elaborazione"; progress?: string } & Source)
-  | ({ status: "pronta"; cutout: Blob; cutoutUrl: string; erased?: boolean } & Source)
+  // cutout: scontornato trasparente (PNG), base per la gomma; final: foto ritoccata e compressa (JPEG), da salvare
+  | ({ status: "pronta"; cutout: Blob; final: Blob; finalUrl: string; erased?: boolean } & Source)
   | ({ status: "errore"; message: string } & Source);
 
 /** Foto aperta nell'editor di ritaglio; `crop` c'è quando si ritaglia di nuovo una foto già scontornata. */
@@ -27,7 +33,12 @@ type Cropping = { side: Side; file: File; originalUrl: string; crop?: CropRect }
 const EMPTY: Photo = { status: "vuota" };
 
 export function AddItem() {
+  const userId = useUser()?.id;
   const [photos, setPhotos] = useState<Record<Side, Photo>>({ fronte: EMPTY, retro: EMPTY });
+  const [details, setDetails] = useState<ItemDetailsValue>(EMPTY_DETAILS);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const [cropping, setCropping] = useState<Cropping | null>(null);
   const [erasing, setErasing] = useState<Side | null>(null);
   // Le foto vengono scontornate una alla volta, nell'ordine in cui sono state confermate.
@@ -57,7 +68,7 @@ export function AddItem() {
   function release(photo: Photo, keep?: string) {
     if (photo.status === "vuota") return;
     if (photo.originalUrl !== keep) revoke(photo.originalUrl);
-    if (photo.status === "pronta") revoke(photo.cutoutUrl);
+    if (photo.status === "pronta") revoke(photo.finalUrl);
   }
 
   function update(side: Side, version: number, photo: Photo) {
@@ -65,7 +76,15 @@ export function AddItem() {
     setPhotos((prev) => ({ ...prev, [side]: photo }));
   }
 
+  /** Ritocco automatico (luce, fondo avorio, ombra) e compressione in JPEG. */
+  async function finish(cutout: Blob) {
+    const { canvas } = await retouch(cutout);
+    const final = await compressJpeg(canvas);
+    return { final, finalUrl: objectUrl(final) };
+  }
+
   function openCrop(side: Side, file: File) {
+    setSaved(false);
     setCropping({ side, file, originalUrl: objectUrl(file) });
   }
 
@@ -111,8 +130,9 @@ export function AddItem() {
         });
         cleanCutout(result);
         const cutout = await canvasToBlob(result);
-        if (versions.current[side] !== version) return;
-        update(side, version, { status: "pronta", cutout, cutoutUrl: objectUrl(cutout), ...source });
+        const { final, finalUrl } = await finish(cutout);
+        if (versions.current[side] !== version) return revoke(finalUrl);
+        update(side, version, { status: "pronta", cutout, final, finalUrl, ...source });
       } catch (error) {
         console.warn("Scontorno non riuscito", error);
         update(side, version, {
@@ -124,13 +144,20 @@ export function AddItem() {
     });
   }
 
-  /** Sostituisce lo scontornato con la versione ritoccata con la gomma. */
-  function confirmErase(side: Side, cutout: Blob) {
+  /** Sostituisce lo scontornato con la versione ritoccata con la gomma e rifà il ritocco automatico. */
+  async function confirmErase(side: Side, cutout: Blob) {
     setErasing(null);
     const photo = photos[side];
     if (photo.status !== "pronta") return;
-    revoke(photo.cutoutUrl);
-    setPhotos((prev) => ({ ...prev, [side]: { ...photo, cutout, cutoutUrl: objectUrl(cutout), erased: true } }));
+    const version = versions.current[side];
+    try {
+      const { final, finalUrl } = await finish(cutout);
+      if (versions.current[side] !== version) return revoke(finalUrl);
+      revoke(photo.finalUrl);
+      update(side, version, { ...photo, cutout, final, finalUrl, erased: true });
+    } catch (error) {
+      console.warn("Ritocco non riuscito", error);
+    }
   }
 
   function retry(side: Side) {
@@ -146,8 +173,60 @@ export function AddItem() {
     setPhotos((prev) => ({ ...prev, [side]: EMPTY }));
   }
 
+  const front = photos.fronte;
+  const back = photos.retro;
+  const missing =
+    front.status === "vuota"
+      ? "Aggiungi la foto del fronte."
+      : front.status === "errore" || back.status === "errore"
+        ? "Riprova o togli la foto non riuscita."
+        : front.status !== "pronta" || back.status === "in coda" || back.status === "elaborazione"
+          ? "Attendi la fine dello scontorno."
+          : !details.categoryId
+            ? "Scegli una categoria."
+            : null;
+
+  async function save() {
+    if (missing || saving || !userId || front.status !== "pronta" || !details.categoryId) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await saveItem(userId, {
+        categoryId: details.categoryId,
+        groupingIds: details.groupingIds,
+        color: details.color,
+        notes: details.notes,
+        front: front.final,
+        back: back.status === "pronta" ? back.final : undefined,
+      });
+      remove("fronte");
+      remove("retro");
+      setDetails(EMPTY_DETAILS);
+      setSaved(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      console.warn("Salvataggio non riuscito", error);
+      setSaveError("Il capo non è stato salvato. Controlla la connessione e riprova.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="space-y-6 pb-6">
+      {saved && (
+        <div role="status" className="rounded-3xl bg-foreground px-5 py-4 text-[15px] text-background">
+          <p className="font-semibold">Capo salvato.</p>
+          <p className="mt-0.5 opacity-80">
+            Aggiungine un altro oppure{" "}
+            <Link href="/" className="underline underline-offset-2">
+              vai all’armadio
+            </Link>
+            .
+          </p>
+        </div>
+      )}
+
       <p className="rounded-3xl bg-surface-muted px-5 py-4 text-[15px] leading-relaxed">
         <span className="font-medium">Consiglio:</span> stendi il capo sul letto o su una superficie con un lenzuolo
         liscio di un solo colore, diverso dal capo. Tutto il capo deve stare nella foto.
@@ -179,6 +258,24 @@ export function AddItem() {
           onConfirm={confirmCrop}
         />
       )}
+
+      <ItemDetails value={details} onChange={setDetails} disabled={saving} />
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={!!missing || saving}
+          className="h-13 w-full rounded-2xl bg-foreground text-[16px] font-semibold text-background disabled:opacity-40"
+        >
+          {saving ? "Salvataggio…" : "Salva capo"}
+        </button>
+        {(saveError ?? missing) && (
+          <p role={saveError ? "alert" : undefined} className="text-center text-[14px] text-muted">
+            {saveError ?? missing}
+          </p>
+        )}
+      </div>
 
       {erasing && photos[erasing].status === "pronta" && (
         <EraserEditor
@@ -234,7 +331,7 @@ function PhotoSlot({
 
         {photo.status === "pronta" && (
           // eslint-disable-next-line @next/next/no-img-element -- immagine locale (blob:), non ottimizzabile da next/image
-          <img src={photo.cutoutUrl} alt={`${label} scontornato`} className="h-full w-full object-contain p-3" />
+          <img src={photo.finalUrl} alt={`${label} ritoccato`} className="h-full w-full object-cover" />
         )}
 
         {(working || photo.status === "errore") && (

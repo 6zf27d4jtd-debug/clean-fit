@@ -11,3 +11,9 @@ export type Profile = {
   id: string;
   recent_days: number;
 };
+
+export type Grouping = {
+  id: string;
+  name: string;
+  position: number;
+};

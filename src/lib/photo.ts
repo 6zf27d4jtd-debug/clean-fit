@@ -30,3 +30,16 @@ export function canvasToBlob(canvas: HTMLCanvasElement, type = "image/png", qual
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Conversione della foto non riuscita"))), type, quality),
   );
 }
+
+/** Peso massimo desiderato per foto (il GB gratuito di Supabase deve bastare a lungo). */
+const TARGET_BYTES = 200 * 1024;
+
+/** Comprime in JPEG (il fondo avorio non ha trasparenza): qualità alta, più bassa solo se il file è pesante. */
+export async function compressJpeg(canvas: HTMLCanvasElement) {
+  let blob = await canvasToBlob(canvas, "image/jpeg", 0.85);
+  for (const quality of [0.75, 0.65]) {
+    if (blob.size <= TARGET_BYTES) break;
+    blob = await canvasToBlob(canvas, "image/jpeg", quality);
+  }
+  return blob;
+}
