@@ -91,16 +91,23 @@ export async function removeBackground(
       loadedEngines.add(key);
     }
 
-    // 2. Scontorno: decodifica (preparazione) → inferenza → composizione con la maschera
-    const pixels = image.getContext("2d")!.getImageData(0, 0, image.width, image.height);
+    // 2. Scontorno: decodifica (preparazione) → inferenza → composizione con la maschera.
+    // imgly 1.7 decodifica solo Blob/URL/ArrayBuffer: un ImageData passa senza conversione e l'inferenza fallisce.
+    track({ phase: "preparazione", type: "start" });
+    const png = await new Promise<Blob>((resolve, reject) =>
+      image.toBlob((b) => (b ? resolve(b) : reject(new Error("Conversione della foto in PNG non riuscita"))), "image/png"),
+    );
     listener = (step) => {
-      if (step === "compute:decode") track({ phase: "preparazione", type: "start" });
       if (step === "compute:inference") {
-        track({ phase: "preparazione", type: "end", detail: `ImageData ${pixels.width}×${pixels.height}` });
+        track({
+          phase: "preparazione",
+          type: "end",
+          detail: `PNG ${image.width}×${image.height}, ${mb(png.size, 1)} MB`,
+        });
         track({ phase: "scontorno", type: "start" });
       }
     };
-    const blob = await imgly.removeBackground(pixels, config(engine));
+    const blob = await imgly.removeBackground(png, config(engine));
 
     const bitmap = await createImageBitmap(blob);
     const canvas = document.createElement("canvas");
