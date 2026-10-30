@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #fafaf8;
+  --surface: #ffffff;
+  --surface-muted: #f2f1ed;
+  --foreground: #111111;
+  --muted: #86857f;
+  --line: #e9e8e3;
+}
+
+.dark {
+  --background: #0e0e0f;
+  --surface: #18181a;
+  --surface-muted: #202023;
+  --foreground: #f2f2f0;
+  --muted: #8c8c90;
+  --line: #29292d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --font-sans: var(--font-geist-sans);
+}
+
+html {
+  background: var(--background);
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  overscroll-behavior-y: none;
+}
+
+/* Evita la selezione accidentale del testo con i tocchi lunghi, tranne nei campi */
+button,
+a,
+nav {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+@utility pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0.75rem);
+}
+
+@utility pb-nav {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
