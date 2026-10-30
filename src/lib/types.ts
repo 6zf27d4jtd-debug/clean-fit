@@ -17,3 +17,14 @@ export type Grouping = {
   name: string;
   position: number;
 };
+
+export type Item = {
+  id: string;
+  category_id: string;
+  front_path: string;
+  back_path: string | null;
+  color: string | null;
+  notes: string | null;
+  favorite: boolean;
+  created_at: string;
+};

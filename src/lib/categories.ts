@@ -1,4 +1,14 @@
-export type CategoryRole = "sopra" | "sotto" | "scarpe" | "capospalla" | "accessorio";
+export type CategoryRole = "sopra" | "sotto" | "scarpe" | "capospalla" | "accessorio" | "escluso";
+
+/** Nomi dei ruoli mostrati all'utente, nell'ordine in cui si scelgono. */
+export const ROLE_LABELS: Record<CategoryRole, string> = {
+  sopra: "Sopra",
+  sotto: "Sotto",
+  scarpe: "Scarpe",
+  capospalla: "Capospalla",
+  accessorio: "Accessori",
+  escluso: "Escluso dagli outfit",
+};
 
 export type DefaultCategory = { name: string; role: CategoryRole };
 

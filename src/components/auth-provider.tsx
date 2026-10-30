@@ -4,6 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { HangerIcon } from "@/components/icons";
+import { clearPhotoUrlCache } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 
 type AuthState =
@@ -36,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState({ status: "ready", user: data.session?.user ?? null });
     });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) clearPhotoUrlCache();
       setState({ status: "ready", user: session?.user ?? null });
     });
     return () => data.subscription.unsubscribe();
@@ -72,7 +74,8 @@ export function useUser() {
   return useContext(AuthContext);
 }
 
-function Splash() {
+/** Schermata di attesa (gruccia): anche il ripiego del layout mentre l'indirizzo non è ancora noto. */
+export function Splash() {
   return (
     <div className="flex min-h-dvh px-8 items-center justify-center text-muted">
       <HangerIcon width={40} height={40} className="animate-pulse" />

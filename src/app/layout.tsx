@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
-import { AuthProvider } from "@/components/auth-provider";
+import { Suspense } from "react";
+import { AuthProvider, Splash } from "@/components/auth-provider";
 import { BottomNav } from "@/components/bottom-nav";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
@@ -42,10 +43,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-dvh font-sans">
-        <AuthProvider>
-          <main className="mx-auto min-h-dvh max-w-md px-5 pt-safe pb-nav">{children}</main>
-          <BottomNav />
-        </AuthProvider>
+        {/* AuthProvider e BottomNav leggono l'indirizzo: nelle pagine con un id (es. /categoria/[id]) è noto solo
+            alla richiesta, quindi con Cache Components serve un Suspense. Le pagine statiche non ne risentono. */}
+        <Suspense fallback={<Splash />}>
+          <AuthProvider>
+            <main className="mx-auto min-h-dvh max-w-md px-5 pt-safe pb-nav">{children}</main>
+            <BottomNav />
+          </AuthProvider>
+        </Suspense>
       </body>
     </html>
   );

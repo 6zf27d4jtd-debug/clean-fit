@@ -81,3 +81,19 @@ export function ChevronRightIcon(props: IconProps) {
     </Icon>
   );
 }
+
+export function ChevronLeftIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m14.5 6-6 6 6 6" />
+    </Icon>
+  );
+}
+
+export function HeartIcon({ filled, ...props }: IconProps & { filled?: boolean }) {
+  return (
+    <Icon fill={filled ? "currentColor" : "none"} {...props}>
+      <path d="M12 19.5s-7.5-4.4-7.5-10A4.2 4.2 0 0 1 12 6.9a4.2 4.2 0 0 1 7.5 2.6c0 5.6-7.5 10-7.5 10Z" />
+    </Icon>
+  );
+}
