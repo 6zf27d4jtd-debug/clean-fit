@@ -1,24 +1,34 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CropEditor } from "@/components/crop-editor";
 import { PlusIcon } from "@/components/icons";
 import { removeBackground, type RemovalEvent } from "@/lib/background-removal";
 import { cleanCutout } from "@/lib/cutout-cleanup";
-import { canvasToBlob, downscale } from "@/lib/photo";
+import { canvasToBlob, downscale, type CropRect } from "@/lib/photo";
 
 type Side = "fronte" | "retro";
 
+const LABELS: Record<Side, string> = { fronte: "Fronte", retro: "Retro" };
+
+/** Foto scelta e riquadro attorno al capo: bastano per rifare lo scontorno (Riprova, Ritaglia). */
+type Source = { file: File; originalUrl: string; crop: CropRect };
+
 type Photo =
   | { status: "vuota" }
-  | { status: "in coda" | "elaborazione"; originalUrl: string; progress?: string }
-  | { status: "pronta"; originalUrl: string; cutout: Blob; cutoutUrl: string }
-  | { status: "errore"; originalUrl: string; file: File; message: string };
+  | ({ status: "in coda" | "elaborazione"; progress?: string } & Source)
+  | ({ status: "pronta"; cutout: Blob; cutoutUrl: string } & Source)
+  | ({ status: "errore"; message: string } & Source);
+
+/** Foto aperta nell'editor di ritaglio; `crop` c'è quando si ritaglia di nuovo una foto già scontornata. */
+type Cropping = { side: Side; file: File; originalUrl: string; crop?: CropRect };
 
 const EMPTY: Photo = { status: "vuota" };
 
 export function AddItem() {
   const [photos, setPhotos] = useState<Record<Side, Photo>>({ fronte: EMPTY, retro: EMPTY });
-  // Le foto vengono scontornate una alla volta, nell'ordine in cui sono state scelte.
+  const [cropping, setCropping] = useState<Cropping | null>(null);
+  // Le foto vengono scontornate una alla volta, nell'ordine in cui sono state confermate.
   const queue = useRef<Promise<void>>(Promise.resolve());
   // Versione di ogni lato: se la foto viene cambiata o tolta, il risultato vecchio viene scartato.
   const versions = useRef<Record<Side, number>>({ fronte: 0, retro: 0 });
@@ -35,16 +45,17 @@ export function AddItem() {
     return url;
   }
 
-  function release(photo: Photo) {
-    for (const url of [
-      "originalUrl" in photo ? photo.originalUrl : null,
-      "cutoutUrl" in photo ? photo.cutoutUrl : null,
-    ]) {
-      if (url) {
-        URL.revokeObjectURL(url);
-        urls.current.delete(url);
-      }
-    }
+  function revoke(url: string | undefined) {
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    urls.current.delete(url);
+  }
+
+  /** Libera gli URL di una foto, tranne `keep` (la foto originale riusata quando si ritaglia di nuovo). */
+  function release(photo: Photo, keep?: string) {
+    if (photo.status === "vuota") return;
+    if (photo.originalUrl !== keep) revoke(photo.originalUrl);
+    if (photo.status === "pronta") revoke(photo.cutoutUrl);
   }
 
   function update(side: Side, version: number, photo: Photo) {
@@ -52,35 +63,63 @@ export function AddItem() {
     setPhotos((prev) => ({ ...prev, [side]: photo }));
   }
 
-  function choose(side: Side, file: File) {
+  function openCrop(side: Side, file: File) {
+    setCropping({ side, file, originalUrl: objectUrl(file) });
+  }
+
+  function recrop(side: Side) {
+    const photo = photos[side];
+    if (photo.status === "vuota") return;
+    setCropping({ side, file: photo.file, originalUrl: photo.originalUrl, crop: photo.crop });
+  }
+
+  function cancelCrop() {
+    // Una foto nuova annullata non serve più; una già in uso resta com'era.
+    if (cropping && !cropping.crop) revoke(cropping.originalUrl);
+    setCropping(null);
+  }
+
+  function confirmCrop(crop: CropRect) {
+    if (!cropping) return;
+    const { side, file, originalUrl } = cropping;
+    release(photos[side], originalUrl);
+    setCropping(null);
+    process(side, { file, originalUrl, crop });
+  }
+
+  function process(side: Side, source: Source) {
     const version = ++versions.current[side];
-    release(photos[side]);
-    const originalUrl = objectUrl(file);
-    setPhotos((prev) => ({ ...prev, [side]: { status: "in coda", originalUrl } }));
+    setPhotos((prev) => ({ ...prev, [side]: { status: "in coda", ...source } }));
 
     queue.current = queue.current.then(async () => {
       if (versions.current[side] !== version) return;
-      update(side, version, { status: "elaborazione", originalUrl });
+      update(side, version, { status: "elaborazione", ...source });
       try {
-        const photo = await downscale(file);
+        const photo = await downscale(source.file, source.crop);
         const result = await removeBackground(photo, undefined, (event) => {
           const progress = progressText(event);
-          if (progress) update(side, version, { status: "elaborazione", originalUrl, progress });
+          if (progress) update(side, version, { status: "elaborazione", progress, ...source });
         });
         cleanCutout(result);
         const cutout = await canvasToBlob(result);
         if (versions.current[side] !== version) return;
-        update(side, version, { status: "pronta", originalUrl, cutout, cutoutUrl: objectUrl(cutout) });
+        update(side, version, { status: "pronta", cutout, cutoutUrl: objectUrl(cutout), ...source });
       } catch (error) {
         console.warn("Scontorno non riuscito", error);
         update(side, version, {
           status: "errore",
-          originalUrl,
-          file,
           message: "Lo scontorno non è riuscito. Riprova o scegli un'altra foto.",
+          ...source,
         });
       }
     });
+  }
+
+  function retry(side: Side) {
+    const photo = photos[side];
+    if (photo.status !== "errore") return;
+    const { file, originalUrl, crop } = photo;
+    process(side, { file, originalUrl, crop });
   }
 
   function remove(side: Side) {
@@ -97,21 +136,30 @@ export function AddItem() {
       </p>
 
       <div className="grid grid-cols-2 gap-3">
-        <PhotoSlot
-          label="Fronte"
-          hint="Obbligatoria"
-          photo={photos.fronte}
-          onChoose={(file) => choose("fronte", file)}
-          onRemove={() => remove("fronte")}
-        />
-        <PhotoSlot
-          label="Retro"
-          hint="Facoltativa"
-          photo={photos.retro}
-          onChoose={(file) => choose("retro", file)}
-          onRemove={() => remove("retro")}
-        />
+        {(["fronte", "retro"] as const).map((side) => (
+          <PhotoSlot
+            key={side}
+            label={LABELS[side]}
+            hint={side === "fronte" ? "Obbligatoria" : "Facoltativa"}
+            photo={photos[side]}
+            onChoose={(file) => openCrop(side, file)}
+            onRecrop={() => recrop(side)}
+            onRetry={() => retry(side)}
+            onRemove={() => remove(side)}
+          />
+        ))}
       </div>
+
+      {cropping && (
+        <CropEditor
+          key={cropping.originalUrl}
+          imageUrl={cropping.originalUrl}
+          label={LABELS[cropping.side]}
+          initialCrop={cropping.crop}
+          onCancel={cancelCrop}
+          onConfirm={confirmCrop}
+        />
+      )}
     </div>
   );
 }
@@ -121,12 +169,16 @@ function PhotoSlot({
   hint,
   photo,
   onChoose,
+  onRecrop,
+  onRetry,
   onRemove,
 }: {
   label: string;
   hint: string;
   photo: Photo;
   onChoose: (file: File) => void;
+  onRecrop: () => void;
+  onRetry: () => void;
   onRemove: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -183,27 +235,38 @@ function PhotoSlot({
         }}
       />
 
-      <div className="mt-2 flex min-h-11 items-center justify-between gap-2 px-1">
-        <span>
-          <span className="block text-[15px] font-medium">{label}</span>
-          <span className="block text-[12px] text-muted">{hint}</span>
-        </span>
-        {photo.status === "errore" ? (
-          <button type="button" onClick={() => onChoose(photo.file)} className="h-11 px-2 text-[14px] font-medium">
-            Riprova
-          </button>
-        ) : (
-          photo.status !== "vuota" &&
-          !working && (
-            <button type="button" onClick={onRemove} className="h-11 px-2 text-[14px] text-muted">
-              Togli
-            </button>
-          )
-        )}
-      </div>
+      <p className="mt-2 px-1">
+        <span className="block text-[15px] font-medium">{label}</span>
+        <span className="block text-[12px] text-muted">{hint}</span>
+      </p>
 
-      {photo.status === "errore" && <p className="px-1 text-[13px] leading-snug text-muted">{photo.message}</p>}
+      {photo.status === "errore" && <p className="mt-1 px-1 text-[13px] leading-snug text-muted">{photo.message}</p>}
+
+      {(photo.status === "pronta" || photo.status === "errore") && (
+        <div className="mt-1 grid grid-cols-2">
+          {photo.status === "pronta" ? (
+            <SlotButton onClick={onRecrop}>Ritaglia</SlotButton>
+          ) : (
+            <SlotButton onClick={onRetry}>Riprova</SlotButton>
+          )}
+          <SlotButton onClick={onRemove} muted>
+            Togli
+          </SlotButton>
+        </div>
+      )}
     </div>
+  );
+}
+
+function SlotButton({ onClick, muted, children }: { onClick: () => void; muted?: boolean; children: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-11 text-[14px] font-medium ${muted ? "text-muted" : "text-foreground"}`}
+    >
+      {children}
+    </button>
   );
 }
 
