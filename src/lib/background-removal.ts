@@ -26,6 +26,23 @@ export function loadedEngineCount() {
   return loadedEngines.size;
 }
 
+/**
+ * Motore predefinito: WebGPU · isnet_fp16 (iPhone: 0.7 s a foto), oppure WASM · isnet_quint8 dove WebGPU
+ * non c'è (iPhone: ~8 s). WebGPU · quint8 è più lento di WASM (10 s): il quantizzato non va sulla GPU.
+ */
+export async function defaultEngine(): Promise<Engine> {
+  return (await hasWebGPU()) ? { device: "webgpu", model: "isnet_fp16" } : { device: "wasm", model: "isnet_quint8" };
+}
+
+async function hasWebGPU() {
+  const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
+  try {
+    return !!(await gpu?.requestAdapter());
+  } catch {
+    return false;
+  }
+}
+
 // imgly memorizza la configurazione della prima chiamata (callback compreso): passiamo sempre lo stesso
 // callback, che inoltra gli eventi all'ascoltatore del momento.
 let listener: Config["progress"];

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  defaultEngine,
   loadedEngineCount,
   MODEL_INPUT_SIZE,
   removeBackground,
@@ -39,7 +40,7 @@ const idlePhases = (): Phases => ({
 export function BackgroundTest() {
   const [env, setEnv] = useState<Env | null>(null);
   const [device, setDevice] = useState<Device>("webgpu");
-  const [model, setModel] = useState<Model>("isnet_quint8");
+  const [model, setModel] = useState<Model>("isnet_fp16");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   // Combinazione dell'ultima elaborazione (può differire dalla selezione attuale)
@@ -73,7 +74,10 @@ export function BackgroundTest() {
         isolated: window.crossOriginIsolated,
         threads: navigator.hardwareConcurrency ?? 1,
       });
-      if (!webgpu) setDevice("wasm");
+      // Selezione iniziale = motore che userà l'app
+      const engine = await defaultEngine();
+      setDevice(engine.device);
+      setModel(engine.model);
     }
     detect();
   }, []);
