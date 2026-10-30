@@ -4,9 +4,6 @@
 import type { Config } from "@imgly/background-removal";
 import { canvasToBlob } from "@/lib/photo";
 
-/** Il modello lavora sempre a 1024×1024 (la foto viene ridimensionata dentro la libreria). */
-export const MODEL_INPUT_SIZE = 1024;
-
 export type Device = "webgpu" | "wasm";
 export type Model = "isnet_quint8" | "isnet_fp16";
 export type Engine = { device: Device; model: Model };
@@ -19,13 +16,8 @@ export type RemovalEvent =
   | { phase: Phase; type: "end"; detail?: string }
   | { phase: Phase; type: "error"; message: string };
 
-// imgly tiene in cache una sessione per ogni configurazione e non le libera: le contiamo per saperlo.
+// imgly tiene in cache una sessione per ogni configurazione e non le libera mai: si usa un solo motore per pagina.
 const loadedEngines = new Set<string>();
-
-/** Combinazioni già caricate in memoria in questa pagina. */
-export function loadedEngineCount() {
-  return loadedEngines.size;
-}
 
 /**
  * Motore predefinito: WebGPU · isnet_fp16 (iPhone: 0.7 s a foto), oppure WASM · isnet_quint8 dove WebGPU
