@@ -9,6 +9,7 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - Chiedere il permesso prima di installare qualsiasi pacchetto o dipendenza.
 - Alla fine di ogni fase: controllare l'app nel browser in formato telefono e spiegare come provarla su iPhone.
 - Next.js 16 ha API diverse da quelle note: leggere `node_modules/next/dist/docs/` prima di usare un'API (vedi AGENTS.md).
+- Il progetto sta in `~/Progetti/app-armadio`, fuori dalla Scrivania: la Scrivania è sincronizzata con iCloud, che crea file duplicati " 2" e rompe Turbopack.
 - Node è in `/usr/local/bin` (non sempre nel PATH della shell non interattiva).
 
 ## Stack
