@@ -12,9 +12,8 @@ import {
   type Phase,
   type RemovalEvent,
 } from "@/lib/background-removal";
-
-/** Lato lungo massimo della foto prima dell'elaborazione, come farà l'app vera. */
-const MAX_SIDE = 1024;
+import { cleanCutout, type CleanupStats } from "@/lib/cutout-cleanup";
+import { downscale } from "@/lib/photo";
 
 const PHASES: { phase: Phase; label: string }[] = [
   { phase: "download", label: "Download modello" },
@@ -26,7 +25,7 @@ const PHASES: { phase: Phase; label: string }[] = [
 type PhaseState = { state: "attesa" | "in corso" | "ok" | "errore"; start?: number; ms?: number; detail?: string };
 type Phases = Record<Phase, PhaseState>;
 
-type Run = { engine: Engine; loadMs: number; inferenceMs: number; size: string };
+type Run = { engine: Engine; loadMs: number; inferenceMs: number; size: string; cleanup: CleanupStats };
 
 type Env = { secure: boolean; webgpu: boolean; webgpuText: string; isolated: boolean; threads: number };
 
@@ -123,9 +122,15 @@ export function BackgroundTest() {
         onEvent(event);
       });
       const inferenceMs = performance.now() - inferenceStart;
-      canvas.className = "mx-auto max-h-[420px] w-auto max-w-full";
-      outputRef.current?.replaceChildren(canvas);
-      setRuns((prev) => [{ engine, loadMs, inferenceMs, size: `${canvas.width}×${canvas.height}` }, ...prev]);
+
+      // Prima e dopo la pulizia, affiancati
+      const cleaned = document.createElement("canvas");
+      cleaned.width = canvas.width;
+      cleaned.height = canvas.height;
+      cleaned.getContext("2d")!.drawImage(canvas, 0, 0);
+      const cleanup = cleanCutout(cleaned);
+      outputRef.current?.replaceChildren(figure(canvas, "Scontorno"), figure(cleaned, "Dopo la pulizia"));
+      setRuns((prev) => [{ engine, loadMs, inferenceMs, size: `${canvas.width}×${canvas.height}`, cleanup }, ...prev]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -143,7 +148,10 @@ export function BackgroundTest() {
       `Combinazioni in memoria: ${inMemory}`,
       ...PHASES.map(({ phase, label }) => `${label}: ${phaseText(phases[phase])}`),
       error ? `Errore (${error.phase}): ${error.message}` : "Nessun errore",
-      ...runs.map((r) => `Prova ${label(r.engine)}: caricamento ${r.loadMs ? seconds(r.loadMs) : "—"}, scontorno ${seconds(r.inferenceMs)}`),
+      ...runs.map(
+        (r) =>
+          `Prova ${label(r.engine)}: caricamento ${r.loadMs ? seconds(r.loadMs) : "—"}, scontorno ${seconds(r.inferenceMs)}, pulizia ${cleanupText(r.cleanup)}`,
+      ),
     ];
     navigator.clipboard.writeText(lines.join("\n")).then(() => setCopied(true), () => setCopied(false));
   }
@@ -251,7 +259,7 @@ export function BackgroundTest() {
         </section>
       )}
 
-      <div ref={outputRef} className="rounded-3xl bg-surface-muted p-4 empty:hidden" />
+      <div ref={outputRef} className="grid grid-cols-2 gap-3 rounded-3xl bg-surface-muted p-3 empty:hidden" />
 
       {runs.length > 0 && (
         <table className="w-full text-[14px]">
@@ -270,7 +278,10 @@ export function BackgroundTest() {
                   <span className="block text-xs text-muted">{r.size}</span>
                 </td>
                 <td className="py-2">{r.loadMs ? seconds(r.loadMs) : "già in memoria"}</td>
-                <td className="py-2">{seconds(r.inferenceMs)}</td>
+                <td className="py-2">
+                  {seconds(r.inferenceMs)}
+                  <span className="block text-xs text-muted">pulizia {cleanupText(r.cleanup)}</span>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -314,16 +325,18 @@ function Segmented<T extends string>({
   );
 }
 
-/** Riduce la foto a MAX_SIDE sul lato lungo e la restituisce come canvas. */
-async function downscale(file: File) {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return canvas;
+function figure(canvas: HTMLCanvasElement, caption: string) {
+  const element = document.createElement("figure");
+  canvas.className = "mx-auto max-h-[320px] w-auto max-w-full";
+  const text = document.createElement("figcaption");
+  text.className = "mt-2 text-center text-xs text-muted";
+  text.textContent = caption;
+  element.append(canvas, text);
+  return element;
+}
+
+function cleanupText({ pieces, keptPieces, removedPercent, ms }: CleanupStats) {
+  return `${pieces} pezzi, tenuti ${keptPieces}, tolto ${removedPercent.toFixed(1)}% (${Math.round(ms)} ms)`;
 }
 
 function label({ device, model }: Engine) {

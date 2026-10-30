@@ -2,6 +2,7 @@
 // Motore attuale: @imgly/background-removal (modelli ISNet). BiRefNet_lite scartato: bad_alloc su WebGPU e WASM.
 
 import type { Config } from "@imgly/background-removal";
+import { canvasToBlob } from "@/lib/photo";
 
 /** Il modello lavora sempre a 1024×1024 (la foto viene ridimensionata dentro la libreria). */
 export const MODEL_INPUT_SIZE = 1024;
@@ -30,9 +31,14 @@ export function loadedEngineCount() {
  * Motore predefinito: WebGPU · isnet_fp16 (iPhone: 0.7 s a foto), oppure WASM · isnet_quint8 dove WebGPU
  * non c'è (iPhone: ~8 s). WebGPU · quint8 è più lento di WASM (10 s): il quantizzato non va sulla GPU.
  */
-export async function defaultEngine(): Promise<Engine> {
-  return (await hasWebGPU()) ? { device: "webgpu", model: "isnet_fp16" } : { device: "wasm", model: "isnet_quint8" };
+export function defaultEngine(): Promise<Engine> {
+  defaultEnginePromise ??= hasWebGPU().then((webgpu) =>
+    webgpu ? { device: "webgpu", model: "isnet_fp16" } : { device: "wasm", model: "isnet_quint8" },
+  );
+  return defaultEnginePromise;
 }
+
+let defaultEnginePromise: Promise<Engine> | undefined;
 
 async function hasWebGPU() {
   const gpu = (navigator as Navigator & { gpu?: { requestAdapter(): Promise<unknown> } }).gpu;
@@ -60,10 +66,11 @@ function config(engine: Engine): Config {
 
 /**
  * Rimuove lo sfondo da una foto già ridotta. Restituisce un canvas con trasparenza, alle stesse dimensioni.
+ * Senza `engine` usa il motore predefinito del dispositivo.
  */
 export async function removeBackground(
   image: HTMLCanvasElement,
-  engine: Engine,
+  engine?: Engine,
   emit: (event: RemovalEvent) => void = () => {},
 ): Promise<HTMLCanvasElement> {
   let phase: Phase = "download";
@@ -74,6 +81,7 @@ export async function removeBackground(
 
   try {
     const imgly = await import("@imgly/background-removal");
+    engine ??= await defaultEngine();
     const key = `${engine.device}-${engine.model}`;
 
     // 1. Download (modello + runtime ONNX) e creazione della sessione, solo la prima volta per combinazione
@@ -111,9 +119,7 @@ export async function removeBackground(
     // 2. Scontorno: decodifica (preparazione) → inferenza → composizione con la maschera.
     // imgly 1.7 decodifica solo Blob/URL/ArrayBuffer: un ImageData passa senza conversione e l'inferenza fallisce.
     track({ phase: "preparazione", type: "start" });
-    const png = await new Promise<Blob>((resolve, reject) =>
-      image.toBlob((b) => (b ? resolve(b) : reject(new Error("Conversione della foto in PNG non riuscita"))), "image/png"),
-    );
+    const png = await canvasToBlob(image);
     listener = (step) => {
       if (step === "compute:inference") {
         track({
