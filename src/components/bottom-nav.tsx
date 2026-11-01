@@ -14,7 +14,9 @@ const TABS = [
 ];
 
 function isActive(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" || pathname.startsWith("/categoria") : pathname.startsWith(href);
+  return href === "/"
+    ? pathname === "/" || ["/categoria", "/categorie", "/capo"].some((prefix) => pathname.startsWith(prefix))
+    : pathname.startsWith(href);
 }
 
 export function BottomNav() {

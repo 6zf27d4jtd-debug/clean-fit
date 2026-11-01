@@ -59,7 +59,15 @@ export function WardrobeHome() {
 
   return (
     <>
-      <PageHeader title="Armadio" subtitle={items ? countLabel(items.length) : " "} />
+      <PageHeader
+        title="Armadio"
+        subtitle={items ? countLabel(items.length) : " "}
+        action={
+          <Link href="/categorie" className="flex h-11 items-center px-1 text-[15px] font-medium text-muted">
+            Modifica
+          </Link>
+        }
+      />
       {error ? (
         <p className="text-[15px] text-muted">Impossibile caricare l’armadio. Controlla la connessione.</p>
       ) : (
