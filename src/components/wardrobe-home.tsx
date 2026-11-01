@@ -71,6 +71,7 @@ export function WardrobeHome() {
                 {favorites.map((item) => (
                   <li key={item.id} className="w-32 shrink-0">
                     <ItemCard
+                      href={`/capo/${item.id}`}
                       label="Capo preferito"
                       photoUrl={urls[item.front_path]}
                       favorite

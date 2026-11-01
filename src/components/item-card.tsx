@@ -1,27 +1,33 @@
 "use client";
 
+import Link from "next/link";
 import { HeartIcon } from "@/components/icons";
 
 /** Foto di un capo (3:4, fondo avorio già nella foto) con il cuoricino dei preferiti. */
 export function ItemCard({
+  href,
   photoUrl,
   favorite,
   onToggleFavorite,
   label,
 }: {
+  href: string;
   photoUrl: string | undefined;
   favorite: boolean;
   onToggleFavorite: () => void;
   label: string;
 }) {
   return (
-    <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-surface-muted">
+    <Link
+      href={href}
+      className="relative block aspect-[3/4] overflow-hidden rounded-2xl bg-surface-muted transition-transform active:scale-[0.98]"
+    >
       {photoUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- link firmato di Supabase, già compresso
         <img src={photoUrl} alt={label} loading="lazy" decoding="async" className="h-full w-full object-cover" />
       )}
       <FavoriteButton favorite={favorite} onToggle={onToggleFavorite} className="absolute top-0 right-0" />
-    </div>
+    </Link>
   );
 }
 

@@ -48,6 +48,7 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
   - capospalla: giubbotti (facoltativo nell'outfit)
   - accessorio: accessori (esclusi dagli outfit per ora)
 - Categorie personalizzate (Fase 3): l'utente crea categorie nuove scegliendo nome e ruolo (Sopra, Sotto, Scarpe, Capospalla, Accessori o Escluso dagli outfit), e può rinominarle ed eliminarle. Il ruolo "escluso" non esiste ancora nello schema: serve una migrazione che allarghi il vincolo su `categories.role`. Eliminazione: una categoria vuota si elimina dopo una conferma; se contiene capi, l'utente sceglie un'altra categoria in cui spostarli e poi la categoria viene eliminata. Da quella finestra non si eliminano mai i capi (il vincolo `on delete restrict` resta come protezione).
+- Da fare più avanti: cambiare le foto di un capo già salvato (es. aggiungere il retro dopo), riusando il percorso di Aggiungi (ritaglio, scontorno, gomma, ritocco) dal dettaglio del capo.
 - Preferiti (Fase 3): cuoricino su ogni capo; nella Home una sezione o un filtro "Preferiti". Serve una migrazione (`items.favorite boolean not null default false`).
 - Outfit: sopra + sotto + scarpe, capospalla facoltativo, strato sotto facoltativo (es. t-shirt sotto felpa). Rispetta i raggruppamenti scelti ed evita i capi indossati negli ultimi N giorni (default 7, modificabile dal profilo).
 - Import multiplo dalla galleria: foto accoppiate in ordine (1ª fronte, 2ª retro, …), con possibilità di correggere nella coda.

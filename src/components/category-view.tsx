@@ -78,6 +78,7 @@ export function CategoryView({ params }: { params: Promise<{ id: string }> }) {
           {items.map((item) => (
             <li key={item.id}>
               <ItemCard
+                href={`/capo/${item.id}`}
                 label={category?.name ?? "Capo"}
                 photoUrl={urls[item.front_path]}
                 favorite={item.favorite}

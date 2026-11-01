@@ -74,3 +74,47 @@ export async function setFavorite(itemId: string, favorite: boolean) {
   const { error } = await getSupabase().from("items").update({ favorite }).eq("id", itemId);
   if (error) throw error;
 }
+
+export type ItemChanges = { categoryId: string; groupingIds: string[]; color: string; notes: string };
+
+/** Aggiorna i dati di un capo; per i gruppi toglie quelli deselezionati e aggiunge i nuovi. */
+export async function updateItem(itemId: string, changes: ItemChanges, previousGroupingIds: string[]) {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from("items")
+    .update({
+      category_id: changes.categoryId,
+      color: changes.color.trim() || null,
+      notes: changes.notes.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", itemId);
+  if (error) throw error;
+
+  const removed = previousGroupingIds.filter((id) => !changes.groupingIds.includes(id));
+  const added = changes.groupingIds.filter((id) => !previousGroupingIds.includes(id));
+  if (removed.length) {
+    const { error } = await supabase.from("item_groupings").delete().eq("item_id", itemId).in("grouping_id", removed);
+    if (error) throw error;
+  }
+  if (added.length) {
+    const { error } = await supabase
+      .from("item_groupings")
+      .insert(added.map((groupingId) => ({ item_id: itemId, grouping_id: groupingId })));
+    if (error) throw error;
+  }
+}
+
+/**
+ * Elimina un capo: prima la riga (i gruppi del capo spariscono a cascata), poi le foto.
+ * In quest'ordine, se la rimozione delle foto fallisce restano solo file invisibili, mai un capo senza foto.
+ */
+export async function deleteItem(item: { id: string; front_path: string; back_path: string | null }) {
+  const supabase = getSupabase();
+  const { error } = await supabase.from("items").delete().eq("id", item.id);
+  if (error) throw error;
+  const paths = [item.front_path, item.back_path].filter((path): path is string => !!path);
+  const { error: storageError } = await supabase.storage.from(PHOTO_BUCKET).remove(paths);
+  if (storageError) console.warn("Foto del capo non rimosse dallo Storage", storageError);
+  return paths;
+}
