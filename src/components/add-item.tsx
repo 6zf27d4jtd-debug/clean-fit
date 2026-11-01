@@ -7,11 +7,9 @@ import { CropEditor } from "@/components/crop-editor";
 import { EraserEditor } from "@/components/eraser-editor";
 import { PlusIcon } from "@/components/icons";
 import { EMPTY_DETAILS, ItemDetails, type ItemDetailsValue } from "@/components/item-details";
-import { removeBackground, type RemovalEvent } from "@/lib/background-removal";
-import { cleanCutout } from "@/lib/cutout-cleanup";
 import { saveItem } from "@/lib/items";
-import { canvasToBlob, compressJpeg, downscale, type CropRect } from "@/lib/photo";
-import { retouch } from "@/lib/retouch";
+import type { CropRect } from "@/lib/photo";
+import { finishCutout, processPhoto } from "@/lib/photo-pipeline";
 
 type Side = "fronte" | "retro";
 
@@ -76,10 +74,9 @@ export function AddItem() {
     setPhotos((prev) => ({ ...prev, [side]: photo }));
   }
 
-  /** Ritocco automatico (luce, fondo avorio, ombra) e compressione in JPEG. */
+  /** Ritocco automatico dopo la gomma, con l'URL per la miniatura. */
   async function finish(cutout: Blob) {
-    const { canvas } = await retouch(cutout);
-    const final = await compressJpeg(canvas);
+    const final = await finishCutout(cutout);
     return { final, finalUrl: objectUrl(final) };
   }
 
@@ -123,15 +120,11 @@ export function AddItem() {
       if (versions.current[side] !== version) return;
       update(side, version, { status: "elaborazione", ...source });
       try {
-        const photo = await downscale(source.file, source.crop);
-        const result = await removeBackground(photo, undefined, (event) => {
-          const progress = progressText(event);
-          if (progress) update(side, version, { status: "elaborazione", progress, ...source });
-        });
-        cleanCutout(result);
-        const cutout = await canvasToBlob(result);
-        const { final, finalUrl } = await finish(cutout);
-        if (versions.current[side] !== version) return revoke(finalUrl);
+        const { cutout, final } = await processPhoto(source.file, source.crop, (progress) =>
+          update(side, version, { status: "elaborazione", progress, ...source }),
+        );
+        if (versions.current[side] !== version) return;
+        const finalUrl = objectUrl(final);
         update(side, version, { status: "pronta", cutout, final, finalUrl, ...source });
       } catch (error) {
         console.warn("Scontorno non riuscito", error);
@@ -226,6 +219,13 @@ export function AddItem() {
           </p>
         </div>
       )}
+
+      <Link
+        href="/aggiungi/importa"
+        className="flex h-13 items-center justify-center rounded-2xl border border-dashed border-line text-[16px] font-medium"
+      >
+        Importa più capi dalla galleria
+      </Link>
 
       <p className="rounded-3xl bg-surface-muted px-5 py-4 text-[15px] leading-relaxed">
         <span className="font-medium">Consiglio:</span> stendi il capo sul letto o su una superficie con un lenzuolo
@@ -398,11 +398,4 @@ function SlotButton({ onClick, muted, children }: { onClick: () => void; muted?:
       {children}
     </button>
   );
-}
-
-function progressText(event: RemovalEvent) {
-  if (event.phase === "download" && event.type === "progress") return `Primo avvio: scarico il modello\n${event.detail}`;
-  if (event.phase === "caricamento" && event.type === "start") return "Preparo il modello…";
-  if (event.phase === "scontorno" && event.type === "start") return "Scontorno…";
-  return undefined;
 }

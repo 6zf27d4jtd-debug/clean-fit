@@ -51,7 +51,8 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - Da fare più avanti: cambiare le foto di un capo già salvato (es. aggiungere il retro dopo), riusando il percorso di Aggiungi (ritaglio, scontorno, gomma, ritocco) dal dettaglio del capo.
 - Preferiti (Fase 3): cuoricino su ogni capo; nella Home una sezione o un filtro "Preferiti". Serve una migrazione (`items.favorite boolean not null default false`).
 - Outfit: sopra + sotto + scarpe, capospalla facoltativo, strato sotto facoltativo (es. t-shirt sotto felpa). Rispetta i raggruppamenti scelti ed evita i capi indossati negli ultimi N giorni (default 7, modificabile dal profilo).
-- Import multiplo dalla galleria: foto accoppiate in ordine (1ª fronte, 2ª retro, …), con possibilità di correggere nella coda.
+- Import multiplo dalla galleria (Fase 4, `/aggiungi/importa`): foto accoppiate in ordine (1ª fronte, 2ª retro, …) oppure "solo fronte", con possibilità di correggere nella coda (scambia, separa, unisci, togli, ritaglia, gomma). Massimo 30 foto per import (avviso se di più). Nessun ritaglio iniziale: si parte dalla foto intera, si ritaglia solo dove serve. Categoria e gruppi assegnabili a tutti o ai selezionati; "Salva tutti" capo per capo. Durante l'import avviso: "Non chiudere l'app e non cambiare app finché l'import non è finito".
+- Rimandato alla Fase 6: coda dell'import salvata in IndexedDB, per riprendere se iOS chiude la PWA.
 - Offline: basta poter consultare l'armadio; aggiungere capi richiede la connessione.
 
 ## Design
