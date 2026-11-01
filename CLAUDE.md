@@ -65,7 +65,7 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - [x] Fase 0 — Base: progetto, navigazione, tema, PWA, icona
 - [x] Fase 1 — Account e dati (Supabase)
 - [x] Fase 2 — Aggiungi capo (foto, ritaglio, scontorno, pulizia, gomma, ritocco, compressione, salvataggio)
-- [ ] Fase 3 — Consultazione (home, categoria, dettaglio, gruppi, modifica) + categorie personalizzate + preferiti
+- [x] Fase 3 — Consultazione (home, categoria, dettaglio, gruppi, modifica) + categorie personalizzate + preferiti
 - [ ] Fase 4 — Import multiplo
 - [ ] Fase 5 — Outfit e Storico
 - [ ] Fase 6 — Rifiniture (offline, splash screen, prestazioni)

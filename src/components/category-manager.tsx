@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
+import { BottomSheet, SheetButton } from "@/components/bottom-sheet";
 import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { countLabel } from "@/components/wardrobe-home";
@@ -124,15 +125,6 @@ function CategorySheet({
   const others = categories.filter((c) => c.id !== category?.id);
   const changed = !category || name.trim() !== category.name || role !== category.role;
 
-  // Blocca lo scorrimento della pagina sotto il pannello
-  useEffect(() => {
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
-  }, []);
-
   async function run(action: () => Promise<{ error: { code?: string } | null }>, failure: string) {
     setPending(true);
     setMessage(null);
@@ -169,126 +161,95 @@ function CategorySheet({
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={category ? `Modifica ${category.name}` : "Nuova categoria"} className="fixed inset-0 z-50">
-      <button type="button" aria-label="Chiudi" onClick={onClose} className="absolute inset-0 bg-black/40" />
-      <div
-        className="absolute inset-x-0 bottom-0 mx-auto max-h-[90dvh] max-w-md overflow-y-auto rounded-t-3xl bg-background px-5 pt-5"
-        style={{ paddingBottom: "max(env(safe-area-inset-bottom), 1.25rem)" }}
-      >
-        {step === "modifica" ? (
-          <div className="space-y-6">
-            <h2 className="text-[20px] font-semibold">{category ? "Modifica categoria" : "Nuova categoria"}</h2>
+    <BottomSheet label={category ? `Modifica ${category.name}` : "Nuova categoria"} onClose={onClose}>
+      {step === "modifica" ? (
+        <div className="space-y-6">
+          <h2 className="text-[20px] font-semibold">{category ? "Modifica categoria" : "Nuova categoria"}</h2>
 
-            <label className="block">
-              <span className="mb-1.5 block text-[13px] font-medium text-muted">Nome</span>
-              <input
-                type="text"
-                maxLength={40}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="es. Gilet"
-                className="h-13 w-full rounded-2xl bg-surface px-4 text-[16px] ring-1 ring-line outline-none focus:ring-2 focus:ring-foreground"
-              />
-            </label>
+          <label className="block">
+            <span className="mb-1.5 block text-[13px] font-medium text-muted">Nome</span>
+            <input
+              type="text"
+              maxLength={40}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="es. Gilet"
+              className="h-13 w-full rounded-2xl bg-surface px-4 text-[16px] ring-1 ring-line outline-none focus:ring-2 focus:ring-foreground"
+            />
+          </label>
 
-            <fieldset>
-              <legend className="mb-1.5 text-[13px] font-medium text-muted">Ruolo negli outfit</legend>
-              <div className="flex flex-wrap gap-2">
-                {ROLES.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={role === value}
-                    onClick={() => setRole(value)}
-                    className={`h-11 rounded-full px-4 text-[15px] font-medium ${
-                      role === value ? "bg-foreground text-background" : "bg-surface ring-1 ring-line"
-                    }`}
-                  >
-                    {ROLE_LABELS[value]}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <div className="grid grid-cols-2 gap-3">
-              <SheetButton onClick={onClose} disabled={pending}>
-                Annulla
-              </SheetButton>
-              <SheetButton onClick={save} disabled={pending || !changed || !name.trim()} primary>
-                {pending ? "Salvataggio…" : category ? "Salva" : "Crea"}
-              </SheetButton>
-            </div>
-
-            {category && (
-              <button
-                type="button"
-                onClick={() => (count ? setStep("sposta") : remove())}
-                disabled={pending || others.length === 0}
-                className="h-11 w-full text-[15px] font-medium text-muted disabled:opacity-40"
-              >
-                Elimina categoria
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <h2 className="text-[20px] font-semibold">Dove spostare i capi?</h2>
-            <p className="text-[15px] leading-relaxed text-muted">
-              “{category?.name}” contiene {countLabel(count)}. Scegli la categoria in cui spostarli: poi “{category?.name}”
-              verrà eliminata. I capi e le loro foto restano.
-            </p>
-            <ul className="divide-y divide-line rounded-3xl bg-surface ring-1 ring-line">
-              {others.map((other) => (
-                <li key={other.id}>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => remove(other.id)}
-                    className="flex min-h-13 w-full items-center justify-between gap-3 px-5 py-3 text-left text-[16px] disabled:opacity-40"
-                  >
-                    <span className="truncate">{other.name}</span>
-                    <span className="shrink-0 text-[13px] text-muted">{ROLE_LABELS[other.role]}</span>
-                  </button>
-                </li>
+          <fieldset>
+            <legend className="mb-1.5 text-[13px] font-medium text-muted">Ruolo negli outfit</legend>
+            <div className="flex flex-wrap gap-2">
+              {ROLES.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={role === value}
+                  onClick={() => setRole(value)}
+                  className={`h-11 rounded-full px-4 text-[15px] font-medium ${
+                    role === value ? "bg-foreground text-background" : "bg-surface ring-1 ring-line"
+                  }`}
+                >
+                  {ROLE_LABELS[value]}
+                </button>
               ))}
-            </ul>
-            <SheetButton onClick={() => setStep("modifica")} disabled={pending}>
-              Indietro
+            </div>
+          </fieldset>
+
+          <div className="grid grid-cols-2 gap-3">
+            <SheetButton onClick={onClose} disabled={pending}>
+              Annulla
+            </SheetButton>
+            <SheetButton onClick={save} disabled={pending || !changed || !name.trim()} primary>
+              {pending ? "Salvataggio…" : category ? "Salva" : "Crea"}
             </SheetButton>
           </div>
-        )}
 
-        {message && (
-          <p role="alert" className="mt-4 text-center text-[14px] text-muted">
-            {message}
+          {category && (
+            <button
+              type="button"
+              onClick={() => (count ? setStep("sposta") : remove())}
+              disabled={pending || others.length === 0}
+              className="h-11 w-full text-[15px] font-medium text-muted disabled:opacity-40"
+            >
+              Elimina categoria
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <h2 className="text-[20px] font-semibold">Dove spostare i capi?</h2>
+          <p className="text-[15px] leading-relaxed text-muted">
+            “{category?.name}” contiene {countLabel(count)}. Scegli la categoria in cui spostarli: poi “{category?.name}”
+            verrà eliminata. I capi e le loro foto restano.
           </p>
-        )}
-      </div>
-    </div>
-  );
-}
+          <ul className="divide-y divide-line rounded-3xl bg-surface ring-1 ring-line">
+            {others.map((other) => (
+              <li key={other.id}>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => remove(other.id)}
+                  className="flex min-h-13 w-full items-center justify-between gap-3 px-5 py-3 text-left text-[16px] disabled:opacity-40"
+                >
+                  <span className="truncate">{other.name}</span>
+                  <span className="shrink-0 text-[13px] text-muted">{ROLE_LABELS[other.role]}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <SheetButton onClick={() => setStep("modifica")} disabled={pending}>
+            Indietro
+          </SheetButton>
+        </div>
+      )}
 
-function SheetButton({
-  onClick,
-  disabled,
-  primary,
-  children,
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  primary?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`h-13 w-full rounded-2xl text-[16px] disabled:opacity-40 ${
-        primary ? "bg-foreground font-semibold text-background" : "bg-surface-muted font-medium"
-      }`}
-    >
-      {children}
-    </button>
+      {message && (
+        <p role="alert" className="mt-4 text-center text-[14px] text-muted">
+          {message}
+        </p>
+      )}
+    </BottomSheet>
   );
 }
