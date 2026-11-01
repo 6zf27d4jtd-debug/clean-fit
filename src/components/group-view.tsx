@@ -6,13 +6,13 @@ import { useUser } from "@/components/auth-provider";
 import { GroupSheet } from "@/components/group-list";
 import { ItemCard } from "@/components/item-card";
 import { BackLink, ItemGridSkeleton, PageHeader } from "@/components/page-header";
-import { useFavoriteToggle } from "@/lib/favorites";
+import { useFavoriteToggle, useLaundryToggle } from "@/lib/item-toggles";
 import { countLabel } from "@/lib/format";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Grouping, Item } from "@/lib/types";
 
-type ListItem = Pick<Item, "id" | "front_path" | "favorite">;
+type ListItem = Pick<Item, "id" | "front_path" | "favorite" | "in_laundry_since">;
 
 export function GroupView({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -30,7 +30,7 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
       supabase.from("groupings").select("id, name, position").eq("id", id).maybeSingle(),
       supabase
         .from("items")
-        .select("id, front_path, favorite, item_groupings!inner(grouping_id)")
+        .select("id, front_path, favorite, in_laundry_since, item_groupings!inner(grouping_id)")
         .eq("item_groupings.grouping_id", id)
         .order("created_at", { ascending: false }),
     ]);
@@ -39,7 +39,7 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
     if (groupResult.error || itemsResult.error) return setError("rete");
 
     const members: ListItem[] = (itemsResult.data as (ListItem & { item_groupings: unknown })[]).map(
-      ({ id, front_path, favorite }) => ({ id, front_path, favorite }),
+      ({ id, front_path, favorite, in_laundry_since }) => ({ id, front_path, favorite, in_laundry_since }),
     );
     setGroup(groupResult.data as Grouping);
     setItems(members);
@@ -54,6 +54,7 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
   const urls = usePhotoUrls(items?.map((item) => item.front_path) ?? []);
 
   const toggleFavorite = useFavoriteToggle(setItems);
+  const toggleLaundry = useLaundryToggle(setItems);
 
   return (
     <>
@@ -93,6 +94,8 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
                 photoUrl={urls[item.front_path]}
                 favorite={item.favorite}
                 onToggleFavorite={() => toggleFavorite(item)}
+                inLaundry={!!item.in_laundry_since}
+                onToggleLaundry={() => toggleLaundry(item)}
               />
             </li>
           ))}

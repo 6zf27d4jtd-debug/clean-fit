@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useUser } from "@/components/auth-provider";
-import { FavoriteButton } from "@/components/item-card";
+import { BasketIcon } from "@/components/icons";
+import { FavoriteButton, LaundryLabel } from "@/components/item-card";
 import { ItemDetails, type ItemDetailsValue } from "@/components/item-details";
 import { BackLink } from "@/components/page-header";
-import { requestFavorite } from "@/lib/favorites";
+import { requestFavorite, requestLaundry } from "@/lib/item-toggles";
 import { deleteItem, updateItem } from "@/lib/items";
 import { dayLabel, OUTFIT_ROLES } from "@/lib/outfit";
 import { forgetPhotoUrls, usePhotoUrls } from "@/lib/photo-urls";
@@ -31,7 +32,7 @@ async function fetchItem(id: string): Promise<Loaded | "assente" | "rete"> {
     supabase
       .from("items")
       .select(
-        "id, category_id, front_path, back_path, color, notes, favorite, created_at, " +
+        "id, category_id, front_path, back_path, color, notes, favorite, created_at, in_laundry_since, " +
           "category:categories(id, name, role, position), item_groupings(grouping_id)",
       )
       .eq("id", id)
@@ -90,6 +91,25 @@ export function ItemView({ params }: { params: Promise<{ id: string }> }) {
       setData((prev) => (prev ? { ...prev, item: { ...prev.item, favorite: value } } : prev));
     apply(!item.favorite);
     requestFavorite(item.id, !item.favorite, item.favorite, apply);
+  }
+
+  function toggleLaundry() {
+    if (!item) return;
+    const inLaundry = !!item.in_laundry_since;
+    const apply = (value: boolean) =>
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              item: {
+                ...prev.item,
+                in_laundry_since: value ? (prev.item.in_laundry_since ?? new Date().toISOString()) : null,
+              },
+            }
+          : prev,
+      );
+    apply(!inLaundry);
+    requestLaundry(item.id, !inLaundry, inLaundry, apply);
   }
 
   async function save() {
@@ -161,6 +181,7 @@ export function ItemView({ params }: { params: Promise<{ id: string }> }) {
       <div className="relative mt-2">
         <PhotoCarousel photos={photos} />
         <FavoriteButton favorite={item.favorite} onToggle={toggleFavorite} className="absolute top-1 right-1" />
+        {item.in_laundry_since && <LaundryLabel className="absolute top-3.5 left-3" />}
       </div>
 
       {editing ? (
@@ -208,6 +229,15 @@ export function ItemView({ params }: { params: Promise<{ id: string }> }) {
           </dl>
 
           <div className="mt-6 space-y-3">
+            <button
+              type="button"
+              onClick={toggleLaundry}
+              aria-pressed={!!item.in_laundry_since}
+              className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-surface text-[16px] font-medium ring-1 ring-line"
+            >
+              <BasketIcon filled={!!item.in_laundry_since} width={20} height={20} />
+              {item.in_laundry_since ? "Lavato: togli dal cesto" : "Metti nel cesto"}
+            </button>
             <button
               type="button"
               onClick={() =>

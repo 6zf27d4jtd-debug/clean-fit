@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { LockIcon } from "@/components/icons";
+import { LaundryPrompt, type WornPiece } from "@/components/laundry-prompt";
 import type { CategoryRole } from "@/lib/categories";
 import {
   activeSlots,
@@ -27,6 +28,7 @@ import type { Grouping } from "@/lib/types";
 type ItemRow = {
   id: string;
   front_path: string;
+  in_laundry_since: string | null;
   category: { role: CategoryRole; underlayer: boolean } | null;
   item_groupings: { grouping_id: string }[];
 };
@@ -53,13 +55,17 @@ export function OutfitBuilder() {
   const [wearing, setWearing] = useState<"salvataggio" | "errore" | null>(null);
   // Outfit appena salvato nello Storico: lo stesso non si salva due volte per sbaglio
   const [savedKey, setSavedKey] = useState<string | null>(null);
+  // Dopo "Lo indosso oggi": i capi dell'outfit, per chiedere quali vanno nel cesto
+  const [worn, setWorn] = useState<WornPiece[] | null>(null);
 
   useEffect(() => {
     if (!userId) return;
     const supabase = getSupabase();
     Promise.all([
       supabase.from("profiles").select("recent_days").eq("id", userId).single(),
-      supabase.from("items").select("id, front_path, category:categories(role, underlayer), item_groupings(grouping_id)"),
+      supabase
+        .from("items")
+        .select("id, front_path, in_laundry_since, category:categories(role, underlayer), item_groupings(grouping_id)"),
       supabase.from("groupings").select("id, name, position").order("position").order("name"),
       // Il massimo impostabile è 90 giorni: il filtro sul numero scelto si fa qui sotto
       supabase.from("outfit_items").select("item_id, outfits!inner(worn_on)").gte("outfits.worn_on", localDate(-89)),
@@ -78,6 +84,7 @@ export function OutfitBuilder() {
                   role: item.category.role,
                   underlayer: item.category.underlayer,
                   groupingIds: item.item_groupings.map((link) => link.grouping_id),
+                  inLaundry: !!item.in_laundry_since,
                 },
               ]
             : [],
@@ -97,9 +104,10 @@ export function OutfitBuilder() {
     picking && data
       ? data.items
           .filter((item) => fitsSlot(item, picking, options.strato))
-          // Prima i capi dei gruppi scelti e non indossati di recente
+          // Prima i capi dei gruppi scelti e non indossati di recente; in fondo quelli nel cesto
           .sort(
             (a, b) =>
+              Number(a.inLaundry) - Number(b.inLaundry) ||
               Number(!inGroups(a, options.groupIds)) - Number(!inGroups(b, options.groupIds)) ||
               Number(data.recent.has(a.id)) - Number(data.recent.has(b.id)),
           )
@@ -125,9 +133,17 @@ export function OutfitBuilder() {
       await saveOutfit(pieces, localDate());
       setSavedKey(outfitKey);
       setWearing(null);
+      setWorn(
+        pieces.flatMap((piece) => {
+          const item = byId.get(piece.itemId);
+          return item ? [{ ...piece, frontPath: item.front_path }] : [];
+        }),
+      );
       // Da adesso questi capi contano come indossati di recente: "Rigenera" li evita
       if (data.recentDays > 0) {
-        setData({ ...data, recent: new Set([...data.recent, ...pieces.map((piece) => piece.itemId)]) });
+        setData((prev) =>
+          prev ? { ...prev, recent: new Set([...prev.recent, ...pieces.map((piece) => piece.itemId)]) } : prev,
+        );
       }
     } catch (error) {
       console.warn("Outfit non salvato", error);
@@ -255,6 +271,10 @@ export function OutfitBuilder() {
           const item = outfit[slot] ? byId.get(outfit[slot]) : undefined;
           const strict = candidates(slot, false);
           const loose = candidates(slot, true);
+          // Capi adatti compresi quelli nel cesto: se ci sono solo quelli, il posto lo dice
+          const anyFitting = data.items.some(
+            (candidate) => fitsSlot(candidate, slot, options.strato) && inGroups(candidate, options.groupIds),
+          );
           const isLocked = locked.has(slot);
           return (
             <li key={slot} className="flex flex-col rounded-3xl bg-surface p-3 ring-1 ring-line">
@@ -290,16 +310,18 @@ export function OutfitBuilder() {
                   <span className="px-3 text-center text-[13px] leading-snug text-muted">
                     {!generated
                       ? "Genera o scegli tu"
-                      : loose.length === 0
+                      : !anyFitting
                         ? `Nessun capo adatto${groupsLabel}`
+                        : loose.length === 0
+                          ? "Tutti nel cesto"
                         : strict.length === 0 && !includeRecent
                           ? "Tutti indossati di recente"
                           : "Genera o scegli tu"}
                   </span>
                 )}
-                {item && data.recent.has(item.id) && (
+                {item && (item.inLaundry || data.recent.has(item.id)) && (
                   <span className="absolute inset-x-2 bottom-2 rounded-full bg-background/90 px-2 py-1 text-center text-[12px] font-medium">
-                    Indossato di recente
+                    {item.inLaundry ? "Da lavare" : "Indossato di recente"}
                   </span>
                 )}
               </button>
@@ -412,15 +434,15 @@ export function OutfitBuilder() {
                       aria-pressed={current}
                       className={`relative block aspect-[3/4] w-full overflow-hidden rounded-2xl bg-surface-muted ${
                         current ? "ring-2 ring-foreground" : ""
-                      } ${outside ? "opacity-50" : ""}`}
+                      } ${outside || item.inLaundry ? "opacity-50" : ""}`}
                     >
                       {urls[item.front_path] && (
                         // eslint-disable-next-line @next/next/no-img-element -- link firmato di Supabase
                         <img src={urls[item.front_path]} alt="" loading="lazy" className="h-full w-full object-cover" />
                       )}
-                      {data.recent.has(item.id) && (
+                      {(item.inLaundry || data.recent.has(item.id)) && (
                         <span className="absolute inset-x-1 bottom-1 rounded-full bg-background/90 py-0.5 text-center text-[11px] font-medium">
-                          Di recente
+                          {item.inLaundry ? "Da lavare" : "Di recente"}
                         </span>
                       )}
                     </button>
@@ -433,6 +455,24 @@ export function OutfitBuilder() {
             <p className="pb-2 text-[13px] text-muted">Più chiari: capi fuori dai gruppi scelti.</p>
           )}
         </BottomSheet>
+      )}
+
+      {worn && (
+        <LaundryPrompt
+          pieces={worn}
+          onDone={(itemIds) => {
+            setWorn(null);
+            // I capi messi nel cesto non vengono più proposti
+            setData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    items: prev.items.map((item) => (itemIds.includes(item.id) ? { ...item, inLaundry: true } : item)),
+                  }
+                : prev,
+            );
+          }}
+        />
       )}
     </div>
   );

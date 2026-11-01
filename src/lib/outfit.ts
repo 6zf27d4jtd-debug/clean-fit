@@ -26,6 +26,8 @@ export type OutfitCandidate = {
   role: CategoryRole;
   underlayer: boolean;
   groupingIds: string[];
+  /** Nel cesto (da lavare): mai proposto, si può solo scegliere a mano. */
+  inLaundry: boolean;
 };
 
 export type OutfitOptions = { groupIds: string[]; capospalla: boolean; strato: boolean };
@@ -51,10 +53,14 @@ export function inGroups(item: OutfitCandidate, groupIds: string[]) {
   return !groupIds.length || item.groupingIds.some((id) => groupIds.includes(id));
 }
 
-/** Capi adatti a un posto; `recent` (se c'è) sono i capi indossati di recente, da escludere. */
+/** Capi da proporre per un posto: mai quelli nel cesto; `recent` (se c'è) sono quelli indossati di recente, da escludere. */
 export function candidatesFor(items: OutfitCandidate[], slot: Slot, options: OutfitOptions, recent?: Set<string>) {
   return items.filter(
-    (item) => fitsSlot(item, slot, options.strato) && inGroups(item, options.groupIds) && !recent?.has(item.id),
+    (item) =>
+      fitsSlot(item, slot, options.strato) &&
+      inGroups(item, options.groupIds) &&
+      !item.inLaundry &&
+      !recent?.has(item.id),
   );
 }
 

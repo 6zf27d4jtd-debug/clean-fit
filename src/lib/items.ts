@@ -75,6 +75,34 @@ export async function setFavorite(itemId: string, favorite: boolean) {
   if (error) throw error;
 }
 
+/** Mette un capo nel cesto (da lavare) o lo toglie. */
+export async function setInLaundry(itemId: string, inLaundry: boolean) {
+  const { error } = await getSupabase()
+    .from("items")
+    .update({ in_laundry_since: inLaundry ? new Date().toISOString() : null })
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
+/** Mette più capi nel cesto; quelli che ci sono già tengono la loro data. */
+export async function putInLaundry(itemIds: string[]) {
+  const { error } = await getSupabase()
+    .from("items")
+    .update({ in_laundry_since: new Date().toISOString() })
+    .in("id", itemIds)
+    .is("in_laundry_since", null);
+  if (error) throw error;
+}
+
+/** "Tutto lavato": svuota il cesto. */
+export async function emptyLaundry() {
+  const { error } = await getSupabase()
+    .from("items")
+    .update({ in_laundry_since: null })
+    .not("in_laundry_since", "is", null);
+  if (error) throw error;
+}
+
 export type ItemChanges = { categoryId: string; groupingIds: string[]; color: string; notes: string };
 
 /** Aggiorna dati e gruppi di un capo in un'unica transazione (funzione update_item): o tutto o niente. */

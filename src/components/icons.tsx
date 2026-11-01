@@ -106,3 +106,12 @@ export function LockIcon({ open, ...props }: IconProps & { open?: boolean }) {
     </Icon>
   );
 }
+
+export function BasketIcon({ filled, ...props }: IconProps & { filled?: boolean }) {
+  return (
+    <Icon {...props}>
+      <path d="M4 10h16l-1.6 8.4a2 2 0 0 1-2 1.6H7.6a2 2 0 0 1-2-1.6Z" fill={filled ? "currentColor" : "none"} />
+      <path d="M8 10 11 4.5M16 10l-3-5.5" />
+    </Icon>
+  );
+}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { BottomSheet, SheetButton } from "@/components/bottom-sheet";
+import { LaundryPrompt, type WornPiece } from "@/components/laundry-prompt";
 import { dayLabel, localDate, SLOT_LABELS, SLOTS, type Slot } from "@/lib/outfit";
 import { deleteOutfit, saveOutfit } from "@/lib/outfits";
 import { usePhotoUrls } from "@/lib/photo-urls";
@@ -30,6 +31,8 @@ export function OutfitHistory() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
   const [open, setOpen] = useState<HistoryOutfit | null>(null);
+  // Dopo "Lo indosso di nuovo oggi": quali capi vanno nel cesto
+  const [worn, setWorn] = useState<WornPiece[] | null>(null);
 
   /** Carica una pagina di outfit; `from` 0 ricomincia dall'inizio. */
   const load = useCallback(async (from: number) => {
@@ -155,6 +158,9 @@ export function OutfitHistory() {
           onClose={() => setOpen(null)}
           onWornAgain={async () => {
             setOpen(null);
+            setWorn(
+              pieces(open).map((piece) => ({ slot: piece.slot, itemId: piece.item.id, frontPath: piece.item.front_path })),
+            );
             await load(0);
           }}
           onDeleted={() => {
@@ -163,6 +169,8 @@ export function OutfitHistory() {
           }}
         />
       )}
+
+      {worn && <LaundryPrompt pieces={worn} onDone={() => setWorn(null)} />}
     </div>
   );
 }

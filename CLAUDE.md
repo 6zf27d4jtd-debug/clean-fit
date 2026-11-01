@@ -56,6 +56,7 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
   - Gruppi: con più gruppi scelti basta che il capo stia in almeno uno.
   - Composizione a mano: ogni posto si sceglie anche a mano, partendo o no da un outfit generato; i capi scelti a mano restano bloccati quando si rigenera. Logica in `src/lib/outfit.ts`, pagina in `outfit-builder.tsx`.
   - Più outfit nello stesso giorno sono ammessi.
+- Da lavare (Fase 5, migrazione `0005_da_lavare.sql`): `items.in_laundry_since` (vuota = pulito). Si segna dal dettaglio del capo e dalle schede di categoria e gruppo (`useLaundryToggle` / `requestLaundry` in `src/lib/item-toggles.ts`). I capi nel cesto non vengono mai proposti negli outfit (nemmeno con "Includi anche quelli"); nella scelta a mano compaiono in fondo con l'etichetta "Da lavare". Home: sezione "Cesto" con "Tutto lavato". Dopo "Lo indosso oggi" (anche dallo Storico) la domanda "Quali capi metti nel cesto?" (`laundry-prompt.tsx`): sopra, strato e sotto già spuntati; scarpe e capospalla no.
 - Da fare dopo la Fase 5: abbinamento dei colori negli outfit generati, usando il campo colore. I neutri (nero, bianco, grigio, beige, blu scuro) stanno con tutto; al massimo un colore acceso per outfit.
 - Import multiplo dalla galleria (Fase 4, `/aggiungi/importa`): foto accoppiate in ordine (1ª fronte, 2ª retro, …) oppure "solo fronte", con possibilità di correggere nella coda (scambia, separa, unisci, togli, ritaglia, gomma). Massimo 30 foto per import (avviso se di più). Nessun ritaglio iniziale: si parte dalla foto intera, si ritaglia solo dove serve. Categoria e gruppi assegnabili a tutti o ai selezionati; "Salva tutti" capo per capo. Durante l'import avviso: "Non chiudere l'app e non cambiare app finché l'import non è finito".
 - Rimandato alla Fase 6: coda dell'import salvata in IndexedDB, per riprendere se iOS chiude la PWA.
@@ -74,5 +75,5 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - [x] Fase 2 — Aggiungi capo (foto, ritaglio, scontorno, pulizia, gomma, ritocco, compressione, salvataggio)
 - [x] Fase 3 — Consultazione (home, categoria, dettaglio, gruppi, modifica) + categorie personalizzate + preferiti
 - [x] Fase 4 — Import multiplo
-- [ ] Fase 5 — Outfit e Storico
+- [x] Fase 5 — Outfit e Storico (con "Da lavare")
 - [ ] Fase 6 — Rifiniture (offline, splash screen, prestazioni)

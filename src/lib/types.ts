@@ -27,4 +27,6 @@ export type Item = {
   notes: string | null;
   favorite: boolean;
   created_at: string;
+  /** Vuota se il capo è pulito; altrimenti il momento in cui è finito nel cesto. */
+  in_laundry_since: string | null;
 };

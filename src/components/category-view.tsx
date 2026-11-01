@@ -5,13 +5,13 @@ import { use, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { ItemCard } from "@/components/item-card";
 import { BackLink, ItemGridSkeleton, PageHeader } from "@/components/page-header";
-import { useFavoriteToggle } from "@/lib/favorites";
+import { useFavoriteToggle, useLaundryToggle } from "@/lib/item-toggles";
 import { countLabel } from "@/lib/format";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category, Item } from "@/lib/types";
 
-type ListItem = Pick<Item, "id" | "front_path" | "favorite">;
+type ListItem = Pick<Item, "id" | "front_path" | "favorite" | "in_laundry_since">;
 
 export function CategoryView({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -27,7 +27,7 @@ export function CategoryView({ params }: { params: Promise<{ id: string }> }) {
       supabase.from("categories").select("id, name, role, position").eq("id", id).maybeSingle(),
       supabase
         .from("items")
-        .select("id, front_path, favorite")
+        .select("id, front_path, favorite, in_laundry_since")
         .eq("category_id", id)
         .order("created_at", { ascending: false }),
     ]).then(([categoryResult, itemsResult]) => {
@@ -44,6 +44,7 @@ export function CategoryView({ params }: { params: Promise<{ id: string }> }) {
   const urls = usePhotoUrls(items?.map((item) => item.front_path) ?? []);
 
   const toggleFavorite = useFavoriteToggle(setItems);
+  const toggleLaundry = useLaundryToggle(setItems);
 
   return (
     <>
@@ -72,6 +73,8 @@ export function CategoryView({ params }: { params: Promise<{ id: string }> }) {
                 photoUrl={urls[item.front_path]}
                 favorite={item.favorite}
                 onToggleFavorite={() => toggleFavorite(item)}
+                inLaundry={!!item.in_laundry_since}
+                onToggleLaundry={() => toggleLaundry(item)}
               />
             </li>
           ))}
