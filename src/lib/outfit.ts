@@ -5,6 +5,9 @@ import type { CategoryRole } from "@/lib/categories";
 
 export type Slot = "capospalla" | "sopra" | "strato" | "sotto" | "scarpe";
 
+/** Ruoli che entrano negli outfit; accessori ed esclusi restano fuori. */
+export const OUTFIT_ROLES: CategoryRole[] = ["capospalla", "sopra", "sotto", "scarpe"];
+
 /** Posti dell'outfit, dall'alto in basso. */
 export const SLOTS: Slot[] = ["capospalla", "sopra", "strato", "sotto", "scarpe"];
 
@@ -67,4 +70,19 @@ export function localDate(offsetDays = 0) {
   date.setDate(date.getDate() + offsetDays);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** "Oggi", "Ieri", oppure il giorno per esteso (con l'anno se non è quello in corso). */
+export function dayLabel(wornOn: string, withWeekday = true) {
+  if (wornOn === localDate()) return "Oggi";
+  if (wornOn === localDate(-1)) return "Ieri";
+  const [year, month, day] = wornOn.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  const label = date.toLocaleDateString("it-IT", {
+    ...(withWeekday && { weekday: "long" }),
+    day: "numeric",
+    month: "long",
+    ...(year !== new Date().getFullYear() && { year: "numeric" }),
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }

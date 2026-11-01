@@ -8,18 +8,26 @@ import { ItemDetails, type ItemDetailsValue } from "@/components/item-details";
 import { BackLink } from "@/components/page-header";
 import { requestFavorite } from "@/lib/favorites";
 import { deleteItem, updateItem } from "@/lib/items";
+import { dayLabel, OUTFIT_ROLES } from "@/lib/outfit";
 import { forgetPhotoUrls, usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category, Grouping, Item } from "@/lib/types";
 
-type Loaded = { item: Item; category: Category | null; groupings: Grouping[]; groupingIds: string[] };
+/** worn: quante volte il capo è stato indossato (outfit nello Storico) e l'ultimo giorno. */
+type Loaded = {
+  item: Item;
+  category: Category | null;
+  groupings: Grouping[];
+  groupingIds: string[];
+  worn: { count: number; last: string | null };
+};
 
 type ItemRow = Item & { category: Category | null; item_groupings: { grouping_id: string }[] };
 
-/** Capo con categoria e gruppi in una sola richiesta, più l'elenco dei gruppi per i nomi. */
+/** Capo con categoria e gruppi in una sola richiesta, più l'elenco dei gruppi per i nomi e l'ultimo outfit col capo. */
 async function fetchItem(id: string): Promise<Loaded | "assente" | "rete"> {
   const supabase = getSupabase();
-  const [itemResult, groupingsResult] = await Promise.all([
+  const [itemResult, groupingsResult, wornResult] = await Promise.all([
     supabase
       .from("items")
       .select(
@@ -29,16 +37,24 @@ async function fetchItem(id: string): Promise<Loaded | "assente" | "rete"> {
       .eq("id", id)
       .maybeSingle(),
     supabase.from("groupings").select("id, name, position").order("position").order("name"),
+    // Outfit che contengono il capo: il più recente, e quanti sono in tutto
+    supabase
+      .from("outfits")
+      .select("worn_on, outfit_items!inner(item_id)", { count: "exact" })
+      .eq("outfit_items.item_id", id)
+      .order("worn_on", { ascending: false })
+      .limit(1),
   ]);
   // Un id non valido (non è un uuid) dà errore 22P02: per l'utente è un capo che non esiste
   if (itemResult.error?.code === "22P02" || (!itemResult.error && !itemResult.data)) return "assente";
-  if (itemResult.error || groupingsResult.error) return "rete";
+  if (itemResult.error || groupingsResult.error || wornResult.error) return "rete";
   const { category, item_groupings, ...item } = itemResult.data as unknown as ItemRow;
   return {
     item,
     category,
     groupings: groupingsResult.data as Grouping[],
     groupingIds: item_groupings.map((link) => link.grouping_id),
+    worn: { count: wornResult.count ?? 0, last: (wornResult.data[0]?.worn_on as string | undefined) ?? null },
   };
 }
 
@@ -179,6 +195,13 @@ export function ItemView({ params }: { params: Promise<{ id: string }> }) {
             <Row label="Gruppi">{groupNames.length ? groupNames.join(", ") : "—"}</Row>
             <Row label="Colore">{item.color ?? "—"}</Row>
             {item.notes && <Row label="Note">{item.notes}</Row>}
+            {data.category && OUTFIT_ROLES.includes(data.category.role) && (
+              <Row label="Indossato">
+                {data.worn.last
+                  ? `${dayLabel(data.worn.last, false)} · ${data.worn.count === 1 ? "1 volta" : `${data.worn.count} volte`}`
+                  : "Mai"}
+              </Row>
+            )}
             <Row label="Aggiunto">
               {new Date(item.created_at).toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })}
             </Row>

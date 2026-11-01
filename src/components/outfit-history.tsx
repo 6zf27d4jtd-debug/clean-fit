@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { BottomSheet, SheetButton } from "@/components/bottom-sheet";
-import { localDate, SLOT_LABELS, SLOTS, type Slot } from "@/lib/outfit";
+import { dayLabel, localDate, SLOT_LABELS, SLOTS, type Slot } from "@/lib/outfit";
 import { deleteOutfit, saveOutfit } from "@/lib/outfits";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
@@ -21,21 +21,6 @@ function pieces(outfit: HistoryOutfit) {
   return outfit.outfit_items
     .filter((piece): piece is Piece & { item: NonNullable<Piece["item"]> } => !!piece.item)
     .sort((a, b) => SLOTS.indexOf(a.slot) - SLOTS.indexOf(b.slot));
-}
-
-/** "Oggi", "Ieri", oppure il giorno per esteso (con l'anno se non è quello in corso). */
-function dayLabel(wornOn: string) {
-  if (wornOn === localDate()) return "Oggi";
-  if (wornOn === localDate(-1)) return "Ieri";
-  const [year, month, day] = wornOn.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  const label = date.toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    ...(year !== new Date().getFullYear() && { year: "numeric" }),
-  });
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 export function OutfitHistory() {

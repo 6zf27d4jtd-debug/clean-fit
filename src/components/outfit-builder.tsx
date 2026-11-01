@@ -12,6 +12,7 @@ import {
   fitsSlot,
   inGroups,
   localDate,
+  OUTFIT_ROLES,
   pickRandom,
   SLOT_LABELS,
   type OutfitCandidate,
@@ -22,9 +23,6 @@ import { saveOutfit } from "@/lib/outfits";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Grouping } from "@/lib/types";
-
-/** Ruoli che entrano negli outfit; accessori ed esclusi restano fuori. */
-const OUTFIT_ROLES: CategoryRole[] = ["capospalla", "sopra", "sotto", "scarpe"];
 
 type ItemRow = {
   id: string;
