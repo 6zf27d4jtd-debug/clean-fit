@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { BottomSheet } from "@/components/bottom-sheet";
@@ -17,6 +18,7 @@ import {
   type OutfitOptions,
   type Slot,
 } from "@/lib/outfit";
+import { saveOutfit } from "@/lib/outfits";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Grouping } from "@/lib/types";
@@ -50,6 +52,9 @@ export function OutfitBuilder() {
   const [locked, setLocked] = useState(new Set<Slot>());
   const [generated, setGenerated] = useState(false);
   const [picking, setPicking] = useState<Slot | null>(null);
+  const [wearing, setWearing] = useState<"salvataggio" | "errore" | null>(null);
+  // Outfit appena salvato nello Storico: lo stesso non si salva due volte per sbaglio
+  const [savedKey, setSavedKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -87,6 +92,8 @@ export function OutfitBuilder() {
   }, [userId]);
 
   const slots = activeSlots(options);
+  const outfitKey = slots.map((slot) => `${slot}:${outfit[slot] ?? ""}`).join("|");
+  const missingRequired = (["sopra", "sotto", "scarpe"] as const).some((slot) => !outfit[slot]);
   const byId = new Map(data?.items.map((item) => [item.id, item]));
   const pickerItems =
     picking && data
@@ -110,6 +117,24 @@ export function OutfitBuilder() {
 
   function candidates(slot: Slot, withRecent = includeRecent) {
     return data ? candidatesFor(data.items, slot, options, withRecent ? undefined : data.recent) : [];
+  }
+
+  async function wear() {
+    if (!data || missingRequired || wearing === "salvataggio") return;
+    const pieces = slots.flatMap((slot) => (outfit[slot] ? [{ slot, itemId: outfit[slot] }] : []));
+    setWearing("salvataggio");
+    try {
+      await saveOutfit(pieces, localDate());
+      setSavedKey(outfitKey);
+      setWearing(null);
+      // Da adesso questi capi contano come indossati di recente: "Rigenera" li evita
+      if (data.recentDays > 0) {
+        setData({ ...data, recent: new Set([...data.recent, ...pieces.map((piece) => piece.itemId)]) });
+      }
+    } catch (error) {
+      console.warn("Outfit non salvato", error);
+      setWearing("errore");
+    }
   }
 
   function generate(withRecent = includeRecent) {
@@ -298,6 +323,38 @@ export function OutfitBuilder() {
           );
         })}
       </ul>
+
+      <div className="space-y-2">
+        {savedKey === outfitKey ? (
+          <div role="status" className="rounded-3xl bg-foreground px-5 py-4 text-[15px] text-background">
+            <p className="font-semibold">Outfit salvato nello Storico.</p>
+            <p className="mt-0.5 opacity-80">
+              <Link href="/outfit/storico" className="underline underline-offset-2">
+                Apri lo Storico
+              </Link>{" "}
+              oppure genera un altro outfit.
+            </p>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={wear}
+              disabled={missingRequired || wearing === "salvataggio"}
+              className="h-13 w-full rounded-2xl bg-surface text-[16px] font-semibold ring-1 ring-foreground disabled:opacity-40 disabled:ring-line"
+            >
+              {wearing === "salvataggio" ? "Salvataggio…" : "Lo indosso oggi"}
+            </button>
+            {(missingRequired || wearing === "errore") && (
+              <p role={wearing === "errore" ? "alert" : undefined} className="text-center text-[14px] text-muted">
+                {wearing === "errore"
+                  ? "Outfit non salvato. Controlla la connessione e riprova."
+                  : "Per salvarlo servono Sopra, Sotto e Scarpe."}
+              </p>
+            )}
+          </>
+        )}
+      </div>
 
       {generated &&
         !includeRecent &&

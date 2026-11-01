@@ -22,17 +22,6 @@ export function PageHeader({
   );
 }
 
-export function ComingSoon({ phase, children }: { phase: number; children: ReactNode }) {
-  return (
-    <div className="rounded-3xl border border-dashed border-line px-6 py-12 text-center">
-      <p className="text-[15px] leading-relaxed text-muted">{children}</p>
-      <p className="mt-3 text-xs font-medium tracking-wide text-muted uppercase">
-        In arrivo nella fase {phase}
-      </p>
-    </div>
-  );
-}
-
 export function BackLink({ href, label }: { href: string; label: string }) {
   return (
     <Link href={href} className="-ml-2 inline-flex h-11 items-center gap-0.5 pr-3 text-[15px] text-muted">
