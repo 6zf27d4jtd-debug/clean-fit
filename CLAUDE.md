@@ -52,6 +52,11 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - Da fare più avanti: cambiare le foto di un capo già salvato (es. aggiungere il retro dopo), riusando il percorso di Aggiungi (ritaglio, scontorno, gomma, ritocco) dal dettaglio del capo.
 - Preferiti (Fase 3): cuoricino su ogni capo; nella Home una sezione o un filtro "Preferiti". Serve una migrazione (`items.favorite boolean not null default false`).
 - Outfit: sopra + sotto + scarpe, capospalla facoltativo, strato sotto facoltativo (es. t-shirt sotto felpa). Rispetta i raggruppamenti scelti ed evita i capi indossati negli ultimi N giorni (default 7, modificabile dal profilo).
+  - Strato: capo "sopra" di una categoria con `categories.underlayer` ("Si porta sotto", migrazione `0004_fase5.sql`; attivo di default su T-shirt e Longsleeve). Va sotto felpe e camicie, mai il contrario.
+  - Gruppi: con più gruppi scelti basta che il capo stia in almeno uno.
+  - Composizione a mano: ogni posto si sceglie anche a mano, partendo o no da un outfit generato; i capi scelti a mano restano bloccati quando si rigenera. Logica in `src/lib/outfit.ts`, pagina in `outfit-builder.tsx`.
+  - Più outfit nello stesso giorno sono ammessi.
+- Da fare dopo la Fase 5: abbinamento dei colori negli outfit generati, usando il campo colore. I neutri (nero, bianco, grigio, beige, blu scuro) stanno con tutto; al massimo un colore acceso per outfit.
 - Import multiplo dalla galleria (Fase 4, `/aggiungi/importa`): foto accoppiate in ordine (1ª fronte, 2ª retro, …) oppure "solo fronte", con possibilità di correggere nella coda (scambia, separa, unisci, togli, ritaglia, gomma). Massimo 30 foto per import (avviso se di più). Nessun ritaglio iniziale: si parte dalla foto intera, si ritaglia solo dove serve. Categoria e gruppi assegnabili a tutti o ai selezionati; "Salva tutti" capo per capo. Durante l'import avviso: "Non chiudere l'app e non cambiare app finché l'import non è finito".
 - Rimandato alla Fase 6: coda dell'import salvata in IndexedDB, per riprendere se iOS chiude la PWA.
 - Offline: basta poter consultare l'armadio; aggiungere capi richiede la connessione.

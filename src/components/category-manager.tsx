@@ -10,7 +10,8 @@ import { countLabel } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category } from "@/lib/types";
 
-type CategoryWithCount = Category & { items: { count: number }[] };
+/** underlayer: categoria "sopra" che negli outfit si porta sotto un altro capo (strato). */
+type CategoryWithCount = Category & { underlayer: boolean; items: { count: number }[] };
 
 /** Pannello aperto: una categoria esistente da modificare, oppure "nuova". */
 type Editing = { category: CategoryWithCount } | { category: null };
@@ -26,7 +27,7 @@ export function CategoryManager() {
   const load = useCallback(async () => {
     const { data, error } = await getSupabase()
       .from("categories")
-      .select("id, name, role, position, items(count)")
+      .select("id, name, role, position, underlayer, items(count)")
       .order("position");
     if (error) return setError(true);
     setCategories(data as CategoryWithCount[]);
@@ -59,7 +60,8 @@ export function CategoryManager() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[16px] font-medium">{category.name}</span>
                       <span className="block text-[13px] text-muted">
-                        {ROLE_LABELS[category.role]} · {countLabel(category.items[0]?.count ?? 0)}
+                        {ROLE_LABELS[category.role]}
+                        {category.underlayer && " (strato)"} · {countLabel(category.items[0]?.count ?? 0)}
                       </span>
                     </span>
                     <ChevronRightIcon width={20} height={20} className="shrink-0 text-muted" />
@@ -113,13 +115,17 @@ function CategorySheet({
 }) {
   const [name, setName] = useState(category?.name ?? "");
   const [role, setRole] = useState<CategoryRole>(category?.role ?? "sopra");
+  const [underlayer, setUnderlayer] = useState(category?.underlayer ?? false);
   const [step, setStep] = useState<"modifica" | "sposta">("modifica");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const count = category?.items[0]?.count ?? 0;
   const others = categories.filter((c) => c.id !== category?.id);
-  const changed = !category || name.trim() !== category.name || role !== category.role;
+  // Solo una categoria "sopra" può essere uno strato (vincolo anche nel database)
+  const isUnderlayer = role === "sopra" && underlayer;
+  const changed =
+    !category || name.trim() !== category.name || role !== category.role || isUnderlayer !== category.underlayer;
 
   async function run(action: () => Promise<{ error: { code?: string } | null }>, failure: string) {
     setPending(true);
@@ -137,12 +143,12 @@ function CategorySheet({
     if (!category) {
       const position = Math.max(-1, ...categories.map((c) => c.position)) + 1;
       return run(
-        async () => supabase.from("categories").insert({ name: trimmed, role, position }),
+        async () => supabase.from("categories").insert({ name: trimmed, role, position, underlayer: isUnderlayer }),
         "Categoria non creata. Controlla la connessione e riprova.",
       );
     }
     return run(
-      async () => supabase.from("categories").update({ name: trimmed, role }).eq("id", category.id),
+      async () => supabase.from("categories").update({ name: trimmed, role, underlayer: isUnderlayer }).eq("id", category.id),
       "Modifiche non salvate. Controlla la connessione e riprova.",
     );
   }
@@ -192,6 +198,34 @@ function CategorySheet({
               ))}
             </div>
           </fieldset>
+
+          {role === "sopra" && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={underlayer}
+              onClick={() => setUnderlayer(!underlayer)}
+              className="flex min-h-15 w-full items-center gap-3 rounded-2xl bg-surface px-4 py-3 text-left ring-1 ring-line"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-medium">Si porta sotto</span>
+                <span className="block text-[13px] leading-snug text-muted">
+                  Negli outfit può fare da strato sotto felpe e camicie, mai il contrario
+                </span>
+              </span>
+              <span
+                className={`flex h-7 w-12 shrink-0 items-center rounded-full p-0.5 transition-colors ${
+                  underlayer ? "bg-foreground" : "bg-line"
+                }`}
+              >
+                <span
+                  className={`size-6 rounded-full bg-background shadow-sm transition-transform ${
+                    underlayer ? "translate-x-5" : ""
+                  }`}
+                />
+              </span>
+            </button>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <SheetButton onClick={onClose} disabled={pending}>

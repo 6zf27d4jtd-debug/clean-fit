@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ClockIcon } from "@/components/icons";
-import { ComingSoon, PageHeader } from "@/components/page-header";
+import { OutfitBuilder } from "@/components/outfit-builder";
+import { PageHeader } from "@/components/page-header";
 
 export default function OutfitPage() {
   return (
@@ -18,9 +19,7 @@ export default function OutfitPage() {
           </Link>
         }
       />
-      <ComingSoon phase={5}>
-        L’app ti proporrà combinazioni di sopra, sotto e scarpe, evitando i capi indossati di recente.
-      </ComingSoon>
+      <OutfitBuilder />
     </>
   );
 }
