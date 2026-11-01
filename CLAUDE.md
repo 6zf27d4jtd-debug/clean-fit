@@ -7,6 +7,7 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 ## Come lavorare
 - Il lavoro procede a fasi: aspettare l'approvazione dell'utente prima di iniziare ogni fase.
 - Chiedere il permesso prima di installare qualsiasi pacchetto o dipendenza.
+- Non usare `npx`, `npm exec`, `pnpm dlx`, `bunx` o altri comandi che scaricano strumenti senza chiedere prima all'utente. Gli strumenti già nel progetto si lanciano da `node_modules/.bin/` (es. `node_modules/.bin/tsc`, `node_modules/.bin/eslint`) o con gli script di `npm run`. Prettier non è nel progetto: non formattare con Prettier; lo stile è quello del codice esistente (righe fino a ~120 caratteri).
 - Alla fine di ogni fase: controllare l'app nel browser in formato telefono e spiegare come provarla su iPhone.
 - Next.js 16 ha API diverse da quelle note: leggere `node_modules/next/dist/docs/` prima di usare un'API (vedi AGENTS.md).
 - Il progetto sta in `~/Progetti/app-armadio`, fuori dalla Scrivania: la Scrivania è sincronizzata con iCloud, che crea file duplicati " 2" e rompe Turbopack.
@@ -67,6 +68,6 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - [x] Fase 1 — Account e dati (Supabase)
 - [x] Fase 2 — Aggiungi capo (foto, ritaglio, scontorno, pulizia, gomma, ritocco, compressione, salvataggio)
 - [x] Fase 3 — Consultazione (home, categoria, dettaglio, gruppi, modifica) + categorie personalizzate + preferiti
-- [ ] Fase 4 — Import multiplo
+- [x] Fase 4 — Import multiplo
 - [ ] Fase 5 — Outfit e Storico
 - [ ] Fase 6 — Rifiniture (offline, splash screen, prestazioni)

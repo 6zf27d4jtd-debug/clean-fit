@@ -12,23 +12,23 @@ export const EMPTY_DETAILS: ItemDetailsValue = { categoryId: null, groupingIds: 
 
 const COLOR_SUGGESTIONS = ["Nero", "Bianco", "Grigio", "Blu", "Beige", "Marrone", "Verde", "Rosso"];
 
-/** Categoria (obbligatoria), raggruppamenti, colore e note di un capo. */
-export function ItemDetails({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: ItemDetailsValue;
-  onChange: (value: ItemDetailsValue) => void;
-  disabled?: boolean;
-}) {
+/** Categorie e gruppi dell'utente; `addGrouping` aggiunge all'elenco un gruppo appena creato. */
+export type WardrobeLists = {
+  categories: Category[] | null;
+  groupings: Grouping[] | null;
+  loadError: boolean;
+  addGrouping: (grouping: Grouping) => void;
+};
+
+/** Carica categorie e gruppi; con `enabled` falso non chiede nulla (le liste arrivano da fuori). */
+export function useWardrobeLists(enabled = true): WardrobeLists {
   const userId = useUser()?.id;
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [groupings, setGroupings] = useState<Grouping[] | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !enabled) return;
     const supabase = getSupabase();
     Promise.all([
       supabase.from("categories").select("id, name, role, position").order("position"),
@@ -38,7 +38,36 @@ export function ItemDetails({
       setCategories(categoriesResult.data as Category[]);
       setGroupings(groupingsResult.data as Grouping[]);
     });
-  }, [userId]);
+  }, [userId, enabled]);
+
+  return {
+    categories,
+    groupings,
+    loadError,
+    addGrouping: (grouping) => setGroupings((prev) => [...(prev ?? []), grouping]),
+  };
+}
+
+/**
+ * Categoria (obbligatoria), raggruppamenti, colore e note di un capo.
+ * Con `bulk` mostra solo categoria e gruppi, da assegnare a più capi insieme (import).
+ */
+export function ItemDetails({
+  value,
+  onChange,
+  disabled,
+  lists,
+  bulk,
+}: {
+  value: ItemDetailsValue;
+  onChange: (value: ItemDetailsValue) => void;
+  disabled?: boolean;
+  /** Liste già caricate da chi usa il componente; altrimenti le carica da sé. */
+  lists?: WardrobeLists;
+  bulk?: boolean;
+}) {
+  const own = useWardrobeLists(!lists);
+  const { categories, groupings, loadError, addGrouping } = lists ?? own;
 
   function toggleGrouping(id: string) {
     const groupingIds = value.groupingIds.includes(id)
@@ -53,13 +82,16 @@ export function ItemDetails({
 
   return (
     <fieldset disabled={disabled} className="space-y-6">
-      <Field label="Categoria" hint="Obbligatoria">
+      <Field label="Categoria" hint={bulk ? "Facoltativa" : "Obbligatoria"}>
         <Chips loading={!categories}>
           {categories?.map((category) => (
             <Chip
               key={category.id}
               selected={value.categoryId === category.id}
-              onClick={() => onChange({ ...value, categoryId: category.id })}
+              // Per più capi la categoria si può anche lasciare com'è: un secondo tocco la deseleziona
+              onClick={() =>
+                onChange({ ...value, categoryId: bulk && value.categoryId === category.id ? null : category.id })
+              }
             >
               {category.name}
             </Chip>
@@ -67,7 +99,7 @@ export function ItemDetails({
         </Chips>
       </Field>
 
-      <Field label="Gruppi" hint="Facoltativi, anche più di uno">
+      <Field label="Gruppi" hint={bulk ? "Si aggiungono a quelli già scelti" : "Facoltativi, anche più di uno"}>
         <Chips loading={!groupings}>
           {groupings?.map((grouping) => (
             <Chip
@@ -82,7 +114,7 @@ export function ItemDetails({
             <NewGrouping
               position={groupings.length}
               onCreated={(grouping) => {
-                setGroupings((prev) => [...(prev ?? []), grouping]);
+                addGrouping(grouping);
                 onChange({ ...value, groupingIds: [...value.groupingIds, grouping.id] });
               }}
             />
@@ -90,38 +122,42 @@ export function ItemDetails({
         </Chips>
       </Field>
 
-      <Field label="Colore" hint="Facoltativo">
-        <input
-          type="text"
-          maxLength={40}
-          value={value.color}
-          onChange={(event) => onChange({ ...value, color: event.target.value })}
-          placeholder="es. blu navy"
-          className="h-13 w-full rounded-2xl bg-surface px-4 text-[16px] ring-1 ring-line outline-none focus:ring-2 focus:ring-foreground"
-        />
-        <div className="-mx-5 mt-2 flex gap-2 overflow-x-auto px-5 pb-1">
-          {COLOR_SUGGESTIONS.map((color) => (
-            <Chip
-              key={color}
-              selected={value.color.toLowerCase() === color.toLowerCase()}
-              onClick={() => onChange({ ...value, color })}
-            >
-              {color}
-            </Chip>
-          ))}
-        </div>
-      </Field>
+      {!bulk && (
+        <>
+          <Field label="Colore" hint="Facoltativo">
+            <input
+              type="text"
+              maxLength={40}
+              value={value.color}
+              onChange={(event) => onChange({ ...value, color: event.target.value })}
+              placeholder="es. blu navy"
+              className="h-13 w-full rounded-2xl bg-surface px-4 text-[16px] ring-1 ring-line outline-none focus:ring-2 focus:ring-foreground"
+            />
+            <div className="-mx-5 mt-2 flex gap-2 overflow-x-auto px-5 pb-1">
+              {COLOR_SUGGESTIONS.map((color) => (
+                <Chip
+                  key={color}
+                  selected={value.color.toLowerCase() === color.toLowerCase()}
+                  onClick={() => onChange({ ...value, color })}
+                >
+                  {color}
+                </Chip>
+              ))}
+            </div>
+          </Field>
 
-      <Field label="Note" hint="Facoltative">
-        <textarea
-          maxLength={500}
-          rows={3}
-          value={value.notes}
-          onChange={(event) => onChange({ ...value, notes: event.target.value })}
-          placeholder="es. taglia M, comprata a Milano"
-          className="w-full resize-none rounded-2xl bg-surface px-4 py-3 text-[16px] ring-1 ring-line outline-none focus:ring-2 focus:ring-foreground"
-        />
-      </Field>
+          <Field label="Note" hint="Facoltative">
+            <textarea
+              maxLength={500}
+              rows={3}
+              value={value.notes}
+              onChange={(event) => onChange({ ...value, notes: event.target.value })}
+              placeholder="es. taglia M, comprata a Milano"
+              className="w-full resize-none rounded-2xl bg-surface px-4 py-3 text-[16px] ring-1 ring-line outline-none focus:ring-2 focus:ring-foreground"
+            />
+          </Field>
+        </>
+      )}
     </fieldset>
   );
 }
