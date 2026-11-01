@@ -6,12 +6,13 @@ import { useUser } from "@/components/auth-provider";
 import { BottomSheet, SheetButton } from "@/components/bottom-sheet";
 import { PlusIcon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
-import { countLabel } from "@/components/wardrobe-home";
 import { usePhotoUrls } from "@/lib/photo-urls";
+import { countLabel } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Grouping } from "@/lib/types";
 
-type GroupSummary = Grouping & { count: number; cover: string | null };
+/** Riga di grouping_summaries(): numero di capi e copertina calcolati dal database. */
+type GroupSummary = Grouping & { item_count: number; cover_path: string | null };
 
 export function GroupList() {
   const userId = useUser()?.id;
@@ -20,25 +21,9 @@ export function GroupList() {
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
-    const supabase = getSupabase();
-    const [groupsResult, linksResult, itemsResult] = await Promise.all([
-      supabase.from("groupings").select("id, name, position").order("position").order("name"),
-      supabase.from("item_groupings").select("grouping_id, item_id"),
-      supabase.from("items").select("id, front_path").order("created_at", { ascending: false }),
-    ]);
-    if (groupsResult.error || linksResult.error || itemsResult.error) return setError(true);
-
-    // Dal capo più recente: il primo trovato in un gruppo ne è la copertina
-    const order = new Map((itemsResult.data as { id: string; front_path: string }[]).map((item, i) => [item.id, { i, ...item }]));
-    const summaries = (groupsResult.data as Grouping[]).map((group) => {
-      const members = (linksResult.data as { grouping_id: string; item_id: string }[])
-        .filter((link) => link.grouping_id === group.id)
-        .map((link) => order.get(link.item_id))
-        .filter((item) => !!item)
-        .sort((a, b) => a.i - b.i);
-      return { ...group, count: members.length, cover: members[0]?.front_path ?? null };
-    });
-    setGroups(summaries);
+    const { data, error } = await getSupabase().rpc("grouping_summaries");
+    if (error) return setError(true);
+    setGroups(data as GroupSummary[]);
   }, []);
 
   useEffect(() => {
@@ -47,7 +32,7 @@ export function GroupList() {
     load();
   }, [userId, load]);
 
-  const urls = usePhotoUrls(groups?.flatMap((group) => (group.cover ? [group.cover] : [])) ?? []);
+  const urls = usePhotoUrls(groups?.flatMap((group) => (group.cover_path ? [group.cover_path] : [])) ?? []);
 
   return (
     <>
@@ -73,10 +58,10 @@ export function GroupList() {
                     className="flex aspect-[4/5] flex-col rounded-3xl bg-surface p-3 ring-1 ring-line transition-transform active:scale-[0.98]"
                   >
                     <div className="flex-1 overflow-hidden rounded-2xl bg-surface-muted">
-                      {group.cover && urls[group.cover] && (
+                      {group.cover_path && urls[group.cover_path] && (
                         // eslint-disable-next-line @next/next/no-img-element -- link firmato di Supabase
                         <img
-                          src={urls[group.cover]}
+                          src={urls[group.cover_path]}
                           alt=""
                           loading="lazy"
                           decoding="async"
@@ -86,7 +71,7 @@ export function GroupList() {
                     </div>
                     <div className="px-1 pt-2.5">
                       <p className="truncate text-[15px] leading-tight font-semibold">{group.name}</p>
-                      <p className="mt-0.5 text-[13px] text-muted">{countLabel(group.count)}</p>
+                      <p className="mt-0.5 text-[13px] text-muted">{countLabel(group.item_count)}</p>
                     </div>
                   </Link>
                 ) : (
@@ -111,7 +96,8 @@ export function GroupList() {
       {creating && groups && (
         <GroupSheet
           group={null}
-          position={groups.length}
+          // In fondo all'elenco: dopo un'eliminazione il numero di gruppi può coincidere con una posizione esistente
+          position={Math.max(-1, ...groups.map((group) => group.position)) + 1}
           onClose={() => setCreating(false)}
           onDone={async () => {
             setCreating(false);

@@ -1,4 +1,6 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
+import { ChevronLeftIcon } from "@/components/icons";
 
 export function PageHeader({
   title,
@@ -28,5 +30,24 @@ export function ComingSoon({ phase, children }: { phase: number; children: React
         In arrivo nella fase {phase}
       </p>
     </div>
+  );
+}
+
+export function BackLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="-ml-2 inline-flex h-11 items-center gap-0.5 pr-3 text-[15px] text-muted">
+      <ChevronLeftIcon width={22} height={22} />
+      {label}
+    </Link>
+  );
+}
+
+export function ItemGridSkeleton() {
+  return (
+    <ul className="grid grid-cols-2 gap-3">
+      {Array.from({ length: 4 }, (_, i) => (
+        <li key={i} className="aspect-[3/4] animate-pulse rounded-2xl bg-surface-muted" />
+      ))}
+    </ul>
   );
 }

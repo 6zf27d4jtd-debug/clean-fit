@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
-import { ChevronLeftIcon } from "@/components/icons";
 import { ItemCard } from "@/components/item-card";
-import { PageHeader } from "@/components/page-header";
-import { countLabel } from "@/components/wardrobe-home";
-import { setFavorite } from "@/lib/items";
+import { BackLink, ItemGridSkeleton, PageHeader } from "@/components/page-header";
+import { useFavoriteToggle } from "@/lib/favorites";
+import { countLabel } from "@/lib/format";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category, Item } from "@/lib/types";
@@ -44,21 +43,11 @@ export function CategoryView({ params }: { params: Promise<{ id: string }> }) {
 
   const urls = usePhotoUrls(items?.map((item) => item.front_path) ?? []);
 
-  async function toggleFavorite(item: ListItem) {
-    const favorite = !item.favorite;
-    const apply = (value: boolean) =>
-      setItems((prev) => prev?.map((i) => (i.id === item.id ? { ...i, favorite: value } : i)) ?? null);
-    apply(favorite);
-    try {
-      await setFavorite(item.id, favorite);
-    } catch {
-      apply(!favorite);
-    }
-  }
+  const toggleFavorite = useFavoriteToggle(setItems);
 
   return (
     <>
-      <BackToWardrobe />
+      <BackLink href="/" label="Armadio" />
       <PageHeader title={category?.name ?? " "} subtitle={items ? countLabel(items.length) : " "} />
 
       {error === "assente" && <p className="text-[15px] text-muted">Questa categoria non esiste più.</p>}
@@ -97,28 +86,9 @@ export function CategoryView({ params }: { params: Promise<{ id: string }> }) {
 export function CategoryViewSkeleton() {
   return (
     <>
-      <BackToWardrobe />
+      <BackLink href="/" label="Armadio" />
       <PageHeader title=" " subtitle=" " />
       <ItemGridSkeleton />
     </>
-  );
-}
-
-function BackToWardrobe() {
-  return (
-    <Link href="/" className="-ml-2 inline-flex h-11 items-center gap-0.5 pr-3 text-[15px] text-muted">
-      <ChevronLeftIcon width={22} height={22} />
-      Armadio
-    </Link>
-  );
-}
-
-function ItemGridSkeleton() {
-  return (
-    <ul className="grid grid-cols-2 gap-3">
-      {Array.from({ length: 4 }, (_, i) => (
-        <li key={i} className="aspect-[3/4] animate-pulse rounded-2xl bg-surface-muted" />
-      ))}
-    </ul>
   );
 }

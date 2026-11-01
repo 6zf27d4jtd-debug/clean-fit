@@ -1,15 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { GroupSheet } from "@/components/group-list";
-import { ChevronLeftIcon } from "@/components/icons";
 import { ItemCard } from "@/components/item-card";
-import { PageHeader } from "@/components/page-header";
-import { countLabel } from "@/components/wardrobe-home";
-import { setFavorite } from "@/lib/items";
+import { BackLink, ItemGridSkeleton, PageHeader } from "@/components/page-header";
+import { useFavoriteToggle } from "@/lib/favorites";
+import { countLabel } from "@/lib/format";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Grouping, Item } from "@/lib/types";
@@ -27,25 +25,22 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
 
   const load = useCallback(async () => {
     const supabase = getSupabase();
-    const [groupResult, linksResult] = await Promise.all([
+    // Gruppo e capi insieme; i capi filtrati dal collegamento con il gruppo (una richiesta, niente elenchi di id)
+    const [groupResult, itemsResult] = await Promise.all([
       supabase.from("groupings").select("id, name, position").eq("id", id).maybeSingle(),
-      supabase.from("item_groupings").select("item_id").eq("grouping_id", id),
+      supabase
+        .from("items")
+        .select("id, front_path, favorite, item_groupings!inner(grouping_id)")
+        .eq("item_groupings.grouping_id", id)
+        .order("created_at", { ascending: false }),
     ]);
     // Un id non valido (non è un uuid) dà errore 22P02: per l'utente è un gruppo che non esiste
     if (groupResult.error?.code === "22P02" || (!groupResult.error && !groupResult.data)) return setError("assente");
-    if (groupResult.error || linksResult.error) return setError("rete");
+    if (groupResult.error || itemsResult.error) return setError("rete");
 
-    const ids = (linksResult.data as { item_id: string }[]).map((link) => link.item_id);
-    let members: ListItem[] = [];
-    if (ids.length) {
-      const { data, error } = await supabase
-        .from("items")
-        .select("id, front_path, favorite")
-        .in("id", ids)
-        .order("created_at", { ascending: false });
-      if (error) return setError("rete");
-      members = data as ListItem[];
-    }
+    const members: ListItem[] = (itemsResult.data as (ListItem & { item_groupings: unknown })[]).map(
+      ({ id, front_path, favorite }) => ({ id, front_path, favorite }),
+    );
     setGroup(groupResult.data as Grouping);
     setItems(members);
   }, [id]);
@@ -58,21 +53,11 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
 
   const urls = usePhotoUrls(items?.map((item) => item.front_path) ?? []);
 
-  async function toggleFavorite(item: ListItem) {
-    const favorite = !item.favorite;
-    const apply = (value: boolean) =>
-      setItems((prev) => prev?.map((i) => (i.id === item.id ? { ...i, favorite: value } : i)) ?? null);
-    apply(favorite);
-    try {
-      await setFavorite(item.id, favorite);
-    } catch {
-      apply(!favorite);
-    }
-  }
+  const toggleFavorite = useFavoriteToggle(setItems);
 
   return (
     <>
-      <BackToGroups />
+      <BackLink href="/gruppi" label="Gruppi" />
       <PageHeader
         title={group?.name ?? " "}
         subtitle={items ? countLabel(items.length) : " "}
@@ -134,28 +119,9 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
 export function GroupViewSkeleton() {
   return (
     <>
-      <BackToGroups />
+      <BackLink href="/gruppi" label="Gruppi" />
       <PageHeader title=" " subtitle=" " />
       <ItemGridSkeleton />
     </>
-  );
-}
-
-function BackToGroups() {
-  return (
-    <Link href="/gruppi" className="-ml-2 inline-flex h-11 items-center gap-0.5 pr-3 text-[15px] text-muted">
-      <ChevronLeftIcon width={22} height={22} />
-      Gruppi
-    </Link>
-  );
-}
-
-function ItemGridSkeleton() {
-  return (
-    <ul className="grid grid-cols-2 gap-3">
-      {Array.from({ length: 4 }, (_, i) => (
-        <li key={i} className="aspect-[3/4] animate-pulse rounded-2xl bg-surface-muted" />
-      ))}
-    </ul>
   );
 }

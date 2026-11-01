@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { BottomSheet, SheetButton } from "@/components/bottom-sheet";
-import { ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "@/components/icons";
-import { PageHeader } from "@/components/page-header";
-import { countLabel } from "@/components/wardrobe-home";
+import { ChevronRightIcon, PlusIcon } from "@/components/icons";
+import { BackLink, PageHeader } from "@/components/page-header";
 import { ROLE_LABELS, type CategoryRole } from "@/lib/categories";
+import { countLabel } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category } from "@/lib/types";
 
@@ -41,10 +40,7 @@ export function CategoryManager() {
 
   return (
     <>
-      <Link href="/" className="-ml-2 inline-flex h-11 items-center gap-0.5 pr-3 text-[15px] text-muted">
-        <ChevronLeftIcon width={22} height={22} />
-        Armadio
-      </Link>
+      <BackLink href="/" label="Armadio" />
       <PageHeader title="Categorie" subtitle="Nome e ruolo negli outfit" />
 
       {error ? (

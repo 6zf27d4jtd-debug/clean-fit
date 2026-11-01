@@ -1,18 +1,46 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useUser } from "@/components/auth-provider";
-import { ChevronLeftIcon } from "@/components/icons";
 import { FavoriteButton } from "@/components/item-card";
 import { ItemDetails, type ItemDetailsValue } from "@/components/item-details";
-import { deleteItem, setFavorite, updateItem } from "@/lib/items";
+import { BackLink } from "@/components/page-header";
+import { requestFavorite } from "@/lib/favorites";
+import { deleteItem, updateItem } from "@/lib/items";
 import { forgetPhotoUrls, usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category, Grouping, Item } from "@/lib/types";
 
 type Loaded = { item: Item; category: Category | null; groupings: Grouping[]; groupingIds: string[] };
+
+type ItemRow = Item & { category: Category | null; item_groupings: { grouping_id: string }[] };
+
+/** Capo con categoria e gruppi in una sola richiesta, più l'elenco dei gruppi per i nomi. */
+async function fetchItem(id: string): Promise<Loaded | "assente" | "rete"> {
+  const supabase = getSupabase();
+  const [itemResult, groupingsResult] = await Promise.all([
+    supabase
+      .from("items")
+      .select(
+        "id, category_id, front_path, back_path, color, notes, favorite, created_at, " +
+          "category:categories(id, name, role, position), item_groupings(grouping_id)",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase.from("groupings").select("id, name, position").order("position").order("name"),
+  ]);
+  // Un id non valido (non è un uuid) dà errore 22P02: per l'utente è un capo che non esiste
+  if (itemResult.error?.code === "22P02" || (!itemResult.error && !itemResult.data)) return "assente";
+  if (itemResult.error || groupingsResult.error) return "rete";
+  const { category, item_groupings, ...item } = itemResult.data as unknown as ItemRow;
+  return {
+    item,
+    category,
+    groupings: groupingsResult.data as Grouping[],
+    groupingIds: item_groupings.map((link) => link.grouping_id),
+  };
+}
 
 export function ItemView({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -25,31 +53,9 @@ export function ItemView({ params }: { params: Promise<{ id: string }> }) {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const supabase = getSupabase();
-    const [itemResult, linksResult, groupingsResult] = await Promise.all([
-      supabase
-        .from("items")
-        .select("id, category_id, front_path, back_path, color, notes, favorite, created_at")
-        .eq("id", id)
-        .maybeSingle(),
-      supabase.from("item_groupings").select("grouping_id").eq("item_id", id),
-      supabase.from("groupings").select("id, name, position").order("position").order("name"),
-    ]);
-    // Un id non valido (non è un uuid) dà errore 22P02: per l'utente è un capo che non esiste
-    if (itemResult.error?.code === "22P02" || (!itemResult.error && !itemResult.data)) return setError("assente");
-    if (itemResult.error || linksResult.error || groupingsResult.error) return setError("rete");
-    const item = itemResult.data as Item;
-    const { data: category } = await supabase
-      .from("categories")
-      .select("id, name, role, position")
-      .eq("id", item.category_id)
-      .maybeSingle();
-    setData({
-      item,
-      category: category as Category | null,
-      groupings: groupingsResult.data as Grouping[],
-      groupingIds: (linksResult.data as { grouping_id: string }[]).map((link) => link.grouping_id),
-    });
+    const result = await fetchItem(id);
+    if (typeof result === "string") return setError(result);
+    setData(result);
   }, [id]);
 
   useEffect(() => {
@@ -62,17 +68,12 @@ export function ItemView({ params }: { params: Promise<{ id: string }> }) {
   const photoPaths = item ? [item.front_path, ...(item.back_path ? [item.back_path] : [])] : [];
   const urls = usePhotoUrls(photoPaths);
 
-  async function toggleFavorite() {
+  function toggleFavorite() {
     if (!item) return;
-    const favorite = !item.favorite;
     const apply = (value: boolean) =>
       setData((prev) => (prev ? { ...prev, item: { ...prev.item, favorite: value } } : prev));
-    apply(favorite);
-    try {
-      await setFavorite(item.id, favorite);
-    } catch {
-      apply(!favorite);
-    }
+    apply(!item.favorite);
+    requestFavorite(item.id, !item.favorite, item.favorite, apply);
   }
 
   async function save() {
@@ -80,19 +81,28 @@ export function ItemView({ params }: { params: Promise<{ id: string }> }) {
     setBusy("salvataggio");
     setActionError(null);
     try {
-      await updateItem(
-        data.item.id,
-        { categoryId: editing.categoryId, groupingIds: editing.groupingIds, color: editing.color, notes: editing.notes },
-        data.groupingIds,
-      );
-      await load();
-      setEditing(null);
+      await updateItem(data.item.id, {
+        categoryId: editing.categoryId,
+        groupingIds: editing.groupingIds,
+        color: editing.color,
+        notes: editing.notes,
+      });
     } catch (err) {
+      // update_item è una transazione: se fallisce non è cambiato niente
       console.warn("Modifica non salvata", err);
       setActionError("Modifiche non salvate. Controlla la connessione e riprova.");
-    } finally {
       setBusy(null);
+      return;
     }
+    setEditing(null);
+    // Salvate: se il ricaricamento fallisce si resta sulla pagina, con un avviso (non la schermata di errore)
+    const result = await fetchItem(data.item.id);
+    if (typeof result === "string") {
+      setActionError("Modifiche salvate, ma la pagina non si è aggiornata. Ricaricala per vederle.");
+    } else {
+      setData(result);
+    }
+    setBusy(null);
   }
 
   async function remove() {
@@ -265,15 +275,6 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <dt className="w-24 shrink-0 text-muted">{label}</dt>
       <dd className="min-w-0 flex-1 break-words whitespace-pre-line">{children}</dd>
     </div>
-  );
-}
-
-function BackLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link href={href} className="-ml-2 inline-flex h-11 items-center gap-0.5 pr-3 text-[15px] text-muted">
-      <ChevronLeftIcon width={22} height={22} />
-      {label}
-    </Link>
   );
 }
 

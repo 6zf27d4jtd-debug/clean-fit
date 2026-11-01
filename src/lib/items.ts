@@ -77,32 +77,16 @@ export async function setFavorite(itemId: string, favorite: boolean) {
 
 export type ItemChanges = { categoryId: string; groupingIds: string[]; color: string; notes: string };
 
-/** Aggiorna i dati di un capo; per i gruppi toglie quelli deselezionati e aggiunge i nuovi. */
-export async function updateItem(itemId: string, changes: ItemChanges, previousGroupingIds: string[]) {
-  const supabase = getSupabase();
-  const { error } = await supabase
-    .from("items")
-    .update({
-      category_id: changes.categoryId,
-      color: changes.color.trim() || null,
-      notes: changes.notes.trim() || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", itemId);
+/** Aggiorna dati e gruppi di un capo in un'unica transazione (funzione update_item): o tutto o niente. */
+export async function updateItem(itemId: string, changes: ItemChanges) {
+  const { error } = await getSupabase().rpc("update_item", {
+    item: itemId,
+    category: changes.categoryId,
+    color: changes.color,
+    notes: changes.notes,
+    grouping_ids: changes.groupingIds,
+  });
   if (error) throw error;
-
-  const removed = previousGroupingIds.filter((id) => !changes.groupingIds.includes(id));
-  const added = changes.groupingIds.filter((id) => !previousGroupingIds.includes(id));
-  if (removed.length) {
-    const { error } = await supabase.from("item_groupings").delete().eq("item_id", itemId).in("grouping_id", removed);
-    if (error) throw error;
-  }
-  if (added.length) {
-    const { error } = await supabase
-      .from("item_groupings")
-      .insert(added.map((groupingId) => ({ item_id: itemId, grouping_id: groupingId })));
-    if (error) throw error;
-  }
 }
 
 /**

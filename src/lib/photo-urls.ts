@@ -16,6 +16,8 @@ type Entry = { url: string; expires: number };
 
 let cache: Map<string, Entry> | null = null;
 const pending = new Map<string, Promise<void>>();
+/** Cambia a ogni uscita dall'account: le risposte arrivate dopo vengono scartate. */
+let generation = 0;
 
 function load() {
   if (cache) return cache;
@@ -44,11 +46,14 @@ function fresh(path: string) {
 export async function photoUrls(paths: string[]): Promise<Record<string, string>> {
   const missing = [...new Set(paths)].filter((path) => !fresh(path) && !pending.has(path));
   if (missing.length) {
+    const requestGeneration = generation;
     const request = getSupabase()
       .storage.from(PHOTO_BUCKET)
       .createSignedUrls(missing, LIFETIME_SECONDS)
       .then(({ data, error }) => {
         if (error) throw error;
+        // Uscita dall'account mentre la richiesta era in corso: questi link non vanno salvati
+        if (requestGeneration !== generation) return;
         const expires = Date.now() + LIFETIME_SECONDS * 1000;
         for (const item of data ?? []) {
           if (item.signedUrl && item.path) load().set(item.path, { url: item.signedUrl, expires });
@@ -90,6 +95,8 @@ export function usePhotoUrls(paths: string[]) {
 
 /** All'uscita dall'account: i link alle foto non devono restare su questo dispositivo. */
 export function clearPhotoUrlCache() {
+  generation++;
+  pending.clear();
   cache = new Map();
   try {
     localStorage.removeItem(STORAGE_KEY);
