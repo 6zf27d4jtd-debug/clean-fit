@@ -36,6 +36,7 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - Un trigger su `auth.users` crea il profilo e le 9 categorie predefinite.
 - Foto nel bucket privato `capi`, percorso `<user_id>/<item_id>/...`; policy Storage per cartella utente.
 - Eliminazione account: il client cancella le foto, poi chiama la funzione `delete_account()` che elimina l'utente (i dati spariscono a cascata).
+- Registrazione solo su invito (migrazione `0006_codice_invito.sql`): tabella `invite_codes` senza policy (invisibile dal browser) e trigger `check_invite_code` *before insert* su `auth.users`, quindi vale anche per chi chiama l'API direttamente. L'app manda il codice nei metadati di `signUp`; il trigger lo toglie da `user_metadata` e lo copia in `app_metadata`. Link d'invito: `/accedi?invito=CODICE`. I codici si creano, controllano e disattivano dall'SQL Editor. Attenzione: anche gli utenti creati a mano dal pannello di Supabase passano dal trigger.
 - "Confirm email" disattivato su Supabase: l'SMTP gratuito di Supabase invia email solo ai membri del progetto. Il recupero password richiederà un SMTP proprio (più avanti).
 
 ## Prodotto

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { authErrorMessage } from "@/lib/auth-errors";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -10,10 +10,20 @@ export function AuthForm() {
   const [mode, setMode] = useState<Mode>("accedi");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Link d'invito (/accedi?invito=CODICE): apre "Registrati" con il codice già scritto
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("invito");
+    if (!code) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- l'indirizzo si legge solo nel browser
+    setInviteCode(code);
+    setMode("registrati");
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -28,8 +38,16 @@ export function AuthForm() {
       const { error } = await supabase.auth.signInWithPassword(credentials);
       if (error) setError(authErrorMessage(error));
     } else {
-      const { data, error } = await supabase.auth.signUp(credentials);
-      if (error) setError(authErrorMessage(error));
+      // Il codice viene controllato dal database (trigger check_invite_code), non qui
+      const { data, error } = await supabase.auth.signUp({
+        ...credentials,
+        options: { data: { invite_code: inviteCode.trim() } },
+      });
+      if (error) {
+        setError(
+          isInviteRejected(error) ? "Codice d’invito non valido, scaduto o già usato." : authErrorMessage(error),
+        );
+      }
       else if (!data.session) setNotice("Ti abbiamo inviato un’email: conferma l’indirizzo, poi accedi.");
     }
     // Se l'accesso riesce, AuthProvider porta alla Home.
@@ -96,6 +114,25 @@ export function AuthForm() {
         {mode === "registrati" && <span className="mt-1.5 block text-[13px] text-muted">Almeno 6 caratteri.</span>}
       </label>
 
+      {mode === "registrati" && (
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] font-medium text-muted">Codice d’invito</span>
+          <input
+            type="text"
+            required
+            autoComplete="off"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            maxLength={40}
+            value={inviteCode}
+            onChange={(event) => setInviteCode(event.target.value)}
+            className="h-13 w-full rounded-2xl bg-surface px-4 font-mono text-[16px] tracking-wider uppercase ring-1 ring-line outline-none focus:ring-2 focus:ring-foreground"
+          />
+          <span className="mt-1.5 block text-[13px] text-muted">Clean Fit è su invito: chiedilo a chi ti ha mandato il link.</span>
+        </label>
+      )}
+
       {error && (
         <p role="alert" className="rounded-2xl bg-red-500/10 px-4 py-3 text-[15px] text-red-600 dark:text-red-400">
           {error}
@@ -111,5 +148,18 @@ export function AuthForm() {
         {pending ? "Attendi…" : mode === "accedi" ? "Accedi" : "Crea account"}
       </button>
     </form>
+  );
+}
+
+/**
+ * Il trigger che controlla il codice blocca la creazione dell'utente. Supabase inoltra il suo messaggio
+ * ("Codice d'invito non valido", codice P0001); le versioni più vecchie rispondono con un errore generico del database.
+ */
+function isInviteRejected(error: { code?: string; message: string }) {
+  return (
+    error.code === "P0001" ||
+    /codice d.invito/i.test(error.message) ||
+    error.code === "unexpected_failure" ||
+    /database error saving new user/i.test(error.message)
   );
 }
