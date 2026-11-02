@@ -3,9 +3,11 @@ import { AccountSection, RecentDaysSetting } from "@/components/account-section"
 import { AdminSection } from "@/components/admin-section";
 import { PageHeader } from "@/components/page-header";
 import { ThemeSelector } from "@/components/theme-selector";
+import packageJson from "../../../package.json";
 
 const SOURCE_URL = "https://github.com/6zf27d4jtd-debug/clean-fit";
-const APP_VERSION = "1.0";
+// Versione da package.json, mostrata come "1.0" (senza l'ultima cifra)
+const APP_VERSION = packageJson.version.split(".").slice(0, 2).join(".");
 
 /** Link del piè di pagina: piccoli, ma con un'area da toccare di 44px. */
 const footerLink = "inline-flex min-h-11 items-center px-1.5 underline-offset-2 active:underline";
