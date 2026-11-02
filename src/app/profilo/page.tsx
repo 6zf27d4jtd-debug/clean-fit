@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { AccountSection, RecentDaysSetting } from "@/components/account-section";
 import { AdminSection } from "@/components/admin-section";
-import { ChevronRightIcon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { ThemeSelector } from "@/components/theme-selector";
 
 const SOURCE_URL = "https://github.com/6zf27d4jtd-debug/clean-fit";
+const APP_VERSION = "1.0";
+
+/** Link del piè di pagina: piccoli, ma con un'area da toccare di 44px. */
+const footerLink = "inline-flex min-h-11 items-center px-1.5 underline-offset-2 active:underline";
 
 export default function ProfiloPage() {
   return (
@@ -17,33 +20,19 @@ export default function ProfiloPage() {
       </section>
       <RecentDaysSetting />
       <AdminSection />
-      <section className="mt-10 space-y-3">
-        <h2 className="text-[13px] font-medium tracking-wide text-muted uppercase">Informazioni</h2>
-        <ul className="divide-y divide-line rounded-2xl bg-surface ring-1 ring-line">
-          <li>
-            <Link href="/privacy" className="flex min-h-13 items-center justify-between gap-3 px-4 text-[15px] font-medium">
-              Privacy
-              <ChevronRightIcon width={20} height={20} className="shrink-0 text-muted" />
-            </Link>
-          </li>
-          <li>
-            {/* Richiesto dalla licenza AGPL-3.0: chi usa l'app deve poter avere il codice sorgente */}
-            <a
-              href={SOURCE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex min-h-13 items-center justify-between gap-3 px-4 text-[15px] font-medium"
-            >
-              <span>
-                Codice sorgente
-                <span className="block text-[13px] font-normal text-muted">Software libero, licenza AGPL-3.0</span>
-              </span>
-              <ChevronRightIcon width={20} height={20} className="shrink-0 text-muted" />
-            </a>
-          </li>
-        </ul>
-      </section>
       <AccountSection />
+      <footer className="mt-8 flex flex-wrap items-center justify-center text-[13px] text-muted/80">
+        <Link href="/privacy" className={footerLink}>
+          Privacy
+        </Link>
+        <span aria-hidden="true">·</span>
+        {/* Richiesto dalla licenza AGPL-3.0: chi usa l'app deve poter avere il codice sorgente */}
+        <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className={footerLink}>
+          Codice sorgente
+        </a>
+        <span aria-hidden="true">·</span>
+        <span className="px-1.5">Clean Fit {APP_VERSION}</span>
+      </footer>
     </>
   );
 }
