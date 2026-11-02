@@ -81,7 +81,9 @@ export function ItemDetails({
   }
 
   return (
-    <fieldset disabled={disabled} className="space-y-6">
+    // min-w-0: un <fieldset> per regola del browser non si stringe sotto la larghezza del contenuto; senza,
+    // la fila dei colori (che scorre di lato) lo allarga e con lui tutta la pagina
+    <fieldset disabled={disabled} className="min-w-0 space-y-6">
       <Field label="Categoria" hint={bulk ? "Facoltativa" : "Obbligatoria"}>
         <Chips loading={!categories}>
           {categories?.map((category) => (

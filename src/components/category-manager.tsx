@@ -180,7 +180,7 @@ function CategorySheet({
             />
           </label>
 
-          <fieldset>
+          <fieldset className="min-w-0">
             <legend className="mb-1.5 text-[13px] font-medium text-muted">Ruolo negli outfit</legend>
             <div className="flex flex-wrap gap-2">
               {ROLES.map((value) => (
