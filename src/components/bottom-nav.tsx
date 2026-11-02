@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useUser } from "@/components/auth-provider";
+import { NEW_PASSWORD_PATH, useUser } from "@/components/auth-provider";
 import { HangerIcon, PlusIcon, SparkleIcon, TagIcon, UserIcon } from "@/components/icons";
 
 const TABS = [
@@ -22,7 +22,8 @@ function isActive(pathname: string, href: string) {
 export function BottomNav() {
   const pathname = usePathname();
   const user = useUser();
-  if (!user) return null;
+  // Durante il recupero della password si resta sulla pagina "Nuova password": niente schede
+  if (!user || pathname === NEW_PASSWORD_PATH) return null;
 
   return (
     <nav

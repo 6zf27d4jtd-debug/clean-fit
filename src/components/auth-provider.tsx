@@ -13,12 +13,28 @@ type AuthState =
   | { status: "error"; user: null; message: string };
 
 const AuthContext = createContext<User | null>(null);
+const RecoveryContext = createContext<() => void>(() => {});
 
 /** Pagine raggiungibili senza account. */
 const PUBLIC_PATHS = ["/accedi"];
 
+/**
+ * Recupero password: il codice giusto apre la sessione, ma prima di entrare si sceglie la password nuova.
+ * Finché non è scelta, l'app resta su questa pagina (anche dopo un ricaricamento, grazie a sessionStorage).
+ */
+export const NEW_PASSWORD_PATH = "/nuova-password";
+const RECOVERY_KEY = "cleanfit:recupero";
+
+function rememberRecovery(active: boolean) {
+  try {
+    if (active) sessionStorage.setItem(RECOVERY_KEY, "1");
+    else sessionStorage.removeItem(RECOVERY_KEY);
+  } catch {}
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading", user: null });
+  const [recovering, setRecovering] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const isPublic = PUBLIC_PATHS.includes(pathname);
@@ -33,18 +49,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    try {
+      setRecovering(sessionStorage.getItem(RECOVERY_KEY) === "1");
+    } catch {}
     supabase.auth.getSession().then(({ data }) => {
       setState({ status: "ready", user: data.session?.user ?? null });
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) clearPhotoUrlCache();
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        rememberRecovery(true);
+        setRecovering(true);
+      }
+      if (!session) {
+        clearPhotoUrlCache();
+        rememberRecovery(false);
+        setRecovering(false);
+      }
       setState({ status: "ready", user: session?.user ?? null });
     });
     return () => data.subscription.unsubscribe();
   }, []);
 
+  const onNewPassword = pathname === NEW_PASSWORD_PATH;
   const redirectTo =
-    state.status !== "ready" ? null : !state.user && !isPublic ? "/accedi" : state.user && isPublic ? "/" : null;
+    state.status !== "ready"
+      ? null
+      : !state.user
+        ? isPublic
+          ? null
+          : "/accedi"
+        : recovering
+          ? onNewPassword
+            ? null
+            : NEW_PASSWORD_PATH
+          : isPublic || onNewPassword
+            ? "/"
+            : null;
 
   useEffect(() => {
     if (redirectTo) router.replace(redirectTo);
@@ -63,10 +103,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={waiting ? null : state.user}>
-      {waiting && <Splash />}
-      <div hidden={waiting}>{children}</div>
+      <RecoveryContext.Provider
+        value={() => {
+          rememberRecovery(false);
+          setRecovering(false);
+        }}
+      >
+        {waiting && <Splash />}
+        <div hidden={waiting}>{children}</div>
+      </RecoveryContext.Provider>
     </AuthContext.Provider>
   );
+}
+
+/** Da chiamare quando la password nuova è salvata: l'app torna alla Home. */
+export function useFinishRecovery() {
+  return useContext(RecoveryContext);
 }
 
 /** Utente collegato; null solo nelle pagine pubbliche. */

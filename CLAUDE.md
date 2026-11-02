@@ -37,11 +37,13 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - Foto nel bucket privato `capi`, percorso `<user_id>/<item_id>/...`; policy Storage per cartella utente.
 - Eliminazione account: il client cancella le foto, poi chiama la funzione `delete_account()` che elimina l'utente (i dati spariscono a cascata).
 - Registrazione solo su invito (migrazione `0006_codice_invito.sql`): tabella `invite_codes` senza policy (invisibile dal browser) e trigger `check_invite_code` *before insert* su `auth.users`, quindi vale anche per chi chiama l'API direttamente. L'app manda il codice nei metadati di `signUp`; il trigger lo toglie da `user_metadata` e lo copia in `app_metadata`. Link d'invito: `/accedi?invito=CODICE`. I codici si creano, controllano e disattivano dall'SQL Editor. Attenzione: anche gli utenti creati a mano dal pannello di Supabase passano dal trigger.
-- "Confirm email" disattivato su Supabase: l'SMTP gratuito di Supabase invia email solo ai membri del progetto. Il recupero password richiederà un SMTP proprio (più avanti).
+- Email: SMTP di Brevo (piano gratuito) con un Gmail dedicato come mittente "Clean Fit" (non conforme a DMARC: controllare lo spam; con un dominio proprio basterà cambiare le impostazioni SMTP). Template "Confirm signup" e "Reset Password" in italiano, solo con `{{ .Token }}` e nessun link.
+- "Confirm email" attivo; codici a 6 cifre validi un'ora. Codici invece di link perché un link nell'email aprirebbe Safari, non la PWA. Registrazione → schermata del codice (`verifyOtp` tipo `email`); accesso con account non verificato → codice nuovo mandato in automatico. Password dimenticata → codice (`verifyOtp` tipo `recovery`) → `/nuova-password`, dove AuthProvider tiene l'utente finché non salva la password (stato in sessionStorage). Il recupero risponde sempre allo stesso modo, che l'email esista o no.
+- Password nuove: almeno 8 caratteri (`MIN_PASSWORD_LENGTH` in `src/lib/auth-errors.ts`, uguale all'impostazione di Supabase). In accesso nessun minimo: gli account vecchi possono avere password più corte.
 
 ## Prodotto
 - Multiutente: ogni persona ha il suo account e i suoi capi, separati. L'app viene condivisa via link.
-- Login: email + password (niente magic link: su iPhone aprirebbe Safari invece della PWA).
+- Login: email + password (niente magic link: su iPhone aprirebbe Safari invece della PWA), con verifica dell'email e recupero della password tramite codice.
 - Capo: foto fronte (obbligatoria), foto retro (facoltativa), una categoria (obbligatoria), zero o più raggruppamenti, colore (facoltativo), note (facoltative).
 - Categorie predefinite modificabili, con un *ruolo* per gli outfit:
   - sopra: felpe, t-shirt, longsleeve, camicie
