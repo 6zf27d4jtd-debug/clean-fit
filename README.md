@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Clean Fit
 
-## Getting Started
+PWA per organizzare l’armadio, pensata per iPhone: foto dei capi con lo sfondo tolto direttamente sul telefono,
+categorie e gruppi, outfit proposti o composti a mano, storico e cesto dei capi da lavare. Interfaccia in italiano.
 
-First, run the development server:
+App pubblicata: https://clean-fit-topaz.vercel.app (registrazione su invito).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Tecnologie
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Next.js 16, React 19, TypeScript, Tailwind CSS 4, Supabase (accesso, database con Row Level Security, foto),
+[@imgly/background-removal](https://github.com/imgly/background-removal-js) per lo scontorno nel browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Sviluppo
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Copia `.env.example` in `.env.local` e inserisci indirizzo e chiave pubblica del progetto Supabase.
+2. Esegui le migrazioni di `supabase/migrations/` in ordine, dall’SQL Editor di Supabase.
+3. `npm install`, poi `npm run dev` e apri http://localhost:3000.
 
-## Learn More
+## Licenza
 
-To learn more about Next.js, take a look at the following resources:
+Copyright © 2026 Andrea Santonocito.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Clean Fit è software libero: puoi redistribuirlo e modificarlo secondo i termini della
+GNU Affero General Public License, pubblicata dalla Free Software Foundation, versione 3 o (a tua scelta) successiva.
+È distribuito nella speranza che sia utile, ma SENZA ALCUNA GARANZIA. Il testo completo è nel file [LICENSE](LICENSE).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Se pubblichi una versione modificata come servizio online, la AGPL chiede di offrire il codice sorgente a chi la usa.
