@@ -3,7 +3,7 @@
 PWA per organizzare l’armadio, pensata per iPhone: foto dei capi con lo sfondo tolto direttamente sul telefono,
 categorie e gruppi, outfit proposti o composti a mano, storico e cesto dei capi da lavare. Interfaccia in italiano.
 
-App pubblicata: https://clean-fit-topaz.vercel.app (registrazione su invito).
+App pubblicata: https://cleanfit01.vercel.app (registrazione su invito).
 
 ## Tecnologie
 

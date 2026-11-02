@@ -29,7 +29,7 @@ function statusOf(invite: Invite): Status {
 const formatDay = (iso: string) => new Date(iso).toLocaleDateString("it-IT", { day: "numeric", month: "long" });
 
 function inviteUrl(code: string) {
-  return `${window.location.origin}/accedi?invito=${code}`;
+  return `${window.location.origin}/i/${code}`;
 }
 
 /**

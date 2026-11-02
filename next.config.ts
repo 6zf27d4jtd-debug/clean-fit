@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "172.*.*.*", "*.local"],
   partialPrefetching: true,
   poweredByHeader: false,
+  // Link d'invito corti: /i/CODICE → registrazione con il codice già scritto
+  async redirects() {
+    return [{ source: "/i/:code([A-Za-z0-9]{8,32})", destination: "/accedi?invito=:code", permanent: false }];
+  },
   // Intestazioni di sicurezza su tutte le pagine. Niente CSP sugli script: quelli inline di Next e del tema
   // richiederebbero un nonce, cioè pagine generate a ogni richiesta. HSTS lo aggiunge già Vercel.
   async headers() {
