@@ -26,6 +26,7 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - Licenza: `@imgly/background-removal` è AGPL-3.0, quindi tutta l'app è distribuita con AGPL-3.0-or-later (file `LICENSE`, campo `license` in `package.json`). La AGPL non dipende dal prezzo: chi usa l'app via rete deve poter avere il codice sorgente, per questo il repository GitHub è pubblico e il Profilo ha il link "Codice sorgente". Mai mettere segreti nel repository. Alternative se servisse un codice chiuso: licenza commerciale img.ly o un altro motore.
 - Foto compresse prima dell'upload (~100–200 KB l'una) per restare nel GB gratuito.
 - Deploy su Vercel (non ancora collegato). Nel frattempo prove in locale: `npm run dev:lan` e dall'iPhone `http://<IP-del-Mac>:3000` sulla stessa rete Wi-Fi (`allowedDevOrigins` in `next.config.ts`). In locale usare `localhost`, non `127.0.0.1` (bloccato dal dev server).
+- Intestazioni di sicurezza in `next.config.ts` (`headers()`): niente iframe da altri siti, nosniff, Referrer-Policy, Permissions-Policy. Niente CSP sugli script: gli script inline richiederebbero un nonce, cioè pagine generate a ogni richiesta.
 - PWA: `src/app/manifest.ts`, icone in `public/icons/` generate da `scripts/generate-icons.mjs`. Service worker (serwist) solo nella fase di rifinitura, per la consultazione offline.
 
 ## Dati e accesso (Fase 1)
