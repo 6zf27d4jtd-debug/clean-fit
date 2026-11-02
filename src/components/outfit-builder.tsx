@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { use, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { BottomSheet } from "@/components/bottom-sheet";
 import { LockIcon } from "@/components/icons";
 import { LaundryPrompt, type WornPiece } from "@/components/laundry-prompt";
+import { SaveOutfitSheet } from "@/components/save-outfit-sheet";
 import type { CategoryRole } from "@/lib/categories";
 import {
   activeSlots,
@@ -22,6 +24,7 @@ import {
 } from "@/lib/outfit";
 import { saveOutfit } from "@/lib/outfits";
 import { usePhotoUrls } from "@/lib/photo-urls";
+import { SAVED_OUTFIT_SELECT, type SavedOutfit } from "@/lib/saved-outfits";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Grouping } from "@/lib/types";
 
@@ -41,8 +44,26 @@ type Loaded = {
   recentDays: number;
 };
 
-export function OutfitBuilder() {
+/** Modifica di un outfit salvato: il compositore parte dai suoi capi, già bloccati. */
+export function SavedOutfitEditor({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  return <OutfitBuilder editId={id} />;
+}
+
+export function OutfitBuilderSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} className="aspect-[3/4] animate-pulse rounded-3xl bg-surface-muted" />
+      ))}
+    </div>
+  );
+}
+
+/** Senza `editId`: proposte del giorno. Con `editId`: modifica dell'outfit salvato con quell'id. */
+export function OutfitBuilder({ editId }: { editId?: string }) {
   const userId = useUser()?.id;
+  const router = useRouter();
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState(false);
   const [options, setOptions] = useState<OutfitOptions>({ groupIds: [], capospalla: false, strato: false });
@@ -57,6 +78,11 @@ export function OutfitBuilder() {
   const [savedKey, setSavedKey] = useState<string | null>(null);
   // Dopo "Lo indosso oggi": i capi dell'outfit, per chiedere quali vanno nel cesto
   const [worn, setWorn] = useState<WornPiece[] | null>(null);
+  // Outfit salvato che si sta modificando (nome e occasioni da proporre nel pannello), oppure "assente"
+  const [editing, setEditing] = useState<{ name: string; occasionIds: string[] } | "assente" | null>(null);
+  const [saving, setSaving] = useState(false);
+  // Outfit appena salvato tra i Salvati
+  const [keptKey, setKeptKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -69,8 +95,12 @@ export function OutfitBuilder() {
       supabase.from("groupings").select("id, name, position").order("position").order("name"),
       // Il massimo impostabile è 90 giorni: il filtro sul numero scelto si fa qui sotto
       supabase.from("outfit_items").select("item_id, outfits!inner(worn_on)").gte("outfits.worn_on", localDate(-89)),
-    ]).then(([profileResult, itemsResult, groupingsResult, wornResult]) => {
-      if (profileResult.error || itemsResult.error || groupingsResult.error || wornResult.error) return setError(true);
+      editId ? supabase.from("saved_outfits").select(SAVED_OUTFIT_SELECT).eq("id", editId).maybeSingle() : null,
+    ]).then(([profileResult, itemsResult, groupingsResult, wornResult, savedResult]) => {
+      if (profileResult.error || itemsResult.error || groupingsResult.error || wornResult.error || savedResult?.error) {
+        return setError(true);
+      }
+      if (savedResult) prefill(savedResult.data as unknown as SavedOutfit | null);
       const recentDays = profileResult.data.recent_days as number;
       const since = localDate(-(recentDays - 1));
       const worn = wornResult.data as unknown as { item_id: string; outfits: { worn_on: string } }[];
@@ -94,7 +124,18 @@ export function OutfitBuilder() {
         recentDays,
       });
     });
-  }, [userId]);
+
+    function prefill(saved: SavedOutfit | null) {
+      if (!saved) return setEditing("assente");
+      const pieces = saved.saved_outfit_items.flatMap((piece) => (piece.item ? [{ slot: piece.slot, id: piece.item.id }] : []));
+      const has = (slot: Slot) => pieces.some((piece) => piece.slot === slot);
+      setOutfit(Object.fromEntries(pieces.map((piece) => [piece.slot, piece.id])));
+      setLocked(new Set(pieces.map((piece) => piece.slot)));
+      setOptions((prev) => ({ ...prev, capospalla: has("capospalla"), strato: has("strato") }));
+      setGenerated(true);
+      setEditing({ name: saved.name ?? "", occasionIds: saved.saved_outfit_occasions.map((link) => link.occasion_id) });
+    }
+  }, [userId, editId]);
 
   const slots = activeSlots(options);
   const outfitKey = slots.map((slot) => `${slot}:${outfit[slot] ?? ""}`).join("|");
@@ -125,9 +166,10 @@ export function OutfitBuilder() {
     return data ? candidatesFor(data.items, slot, options, withRecent ? undefined : data.recent) : [];
   }
 
+  const pieces = slots.flatMap((slot) => (outfit[slot] ? [{ slot, itemId: outfit[slot] }] : []));
+
   async function wear() {
     if (!data || missingRequired || wearing === "salvataggio") return;
-    const pieces = slots.flatMap((slot) => (outfit[slot] ? [{ slot, itemId: outfit[slot] }] : []));
     setWearing("salvataggio");
     try {
       await saveOutfit(pieces, localDate());
@@ -209,15 +251,9 @@ export function OutfitBuilder() {
 
   if (error) return <p className="text-[15px] text-muted">Impossibile caricare l’armadio. Controlla la connessione.</p>;
 
-  if (!data) {
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="aspect-[3/4] animate-pulse rounded-3xl bg-surface-muted" />
-        ))}
-      </div>
-    );
-  }
+  if (editing === "assente") return <p className="text-[15px] text-muted">Outfit non trovato.</p>;
+
+  if (!data || (editId && !editing)) return <OutfitBuilderSkeleton />;
 
   const groupsLabel = options.groupIds.length ? " nei gruppi scelti" : "";
 
@@ -345,6 +381,16 @@ export function OutfitBuilder() {
       </ul>
 
       <div className="space-y-2">
+        {editId && (
+          <button
+            type="button"
+            onClick={() => setSaving(true)}
+            disabled={missingRequired}
+            className="h-13 w-full rounded-2xl bg-foreground text-[16px] font-semibold text-background disabled:opacity-40"
+          >
+            Salva modifiche
+          </button>
+        )}
         {savedKey === outfitKey ? (
           <div role="status" className="rounded-3xl bg-foreground px-5 py-4 text-[15px] text-background">
             <p className="font-semibold">Outfit salvato nello Storico.</p>
@@ -357,14 +403,34 @@ export function OutfitBuilder() {
           </div>
         ) : (
           <>
-            <button
-              type="button"
-              onClick={wear}
-              disabled={missingRequired || wearing === "salvataggio"}
-              className="h-13 w-full rounded-2xl bg-surface text-[16px] font-semibold ring-1 ring-foreground disabled:opacity-40 disabled:ring-line"
-            >
-              {wearing === "salvataggio" ? "Salvataggio…" : "Lo indosso oggi"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={wear}
+                disabled={missingRequired || wearing === "salvataggio"}
+                className="h-13 flex-1 rounded-2xl bg-surface text-[16px] font-semibold ring-1 ring-foreground disabled:opacity-40 disabled:ring-line"
+              >
+                {wearing === "salvataggio" ? "Salvataggio…" : "Lo indosso oggi"}
+              </button>
+              {!editId && (
+                <button
+                  type="button"
+                  onClick={() => setSaving(true)}
+                  disabled={missingRequired || keptKey === outfitKey}
+                  className="h-13 shrink-0 rounded-2xl bg-surface-muted px-5 text-[16px] font-semibold disabled:opacity-40"
+                >
+                  {keptKey === outfitKey ? "Salvato" : "Salva"}
+                </button>
+              )}
+            </div>
+            {keptKey === outfitKey && (
+              <p role="status" className="text-center text-[14px] text-muted">
+                Salvato tra gli outfit.{" "}
+                <Link href="/outfit/salvati" className="font-medium text-foreground underline underline-offset-2">
+                  Apri i Salvati
+                </Link>
+              </p>
+            )}
             {(missingRequired || wearing === "errore") && (
               <p role={wearing === "errore" ? "alert" : undefined} className="text-center text-[14px] text-muted">
                 {wearing === "errore"
@@ -455,6 +521,22 @@ export function OutfitBuilder() {
             <p className="pb-2 text-[13px] text-muted">Più chiari: capi fuori dai gruppi scelti.</p>
           )}
         </BottomSheet>
+      )}
+
+      {saving && (
+        <SaveOutfitSheet
+          outfitId={editId}
+          title={editId ? "Salva modifiche" : "Salva outfit"}
+          initialName={editing?.name}
+          initialOccasionIds={editing?.occasionIds}
+          pieces={pieces}
+          onClose={() => setSaving(false)}
+          onSaved={() => {
+            setSaving(false);
+            if (editId) router.push("/outfit/salvati");
+            else setKeptKey(outfitKey);
+          }}
+        />
       )}
 
       {worn && (

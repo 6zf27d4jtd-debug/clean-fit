@@ -5,9 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { BottomSheet, SheetButton } from "@/components/bottom-sheet";
 import { LaundryPrompt, type WornPiece } from "@/components/laundry-prompt";
+import { SaveOutfitSheet } from "@/components/save-outfit-sheet";
 import { dayLabel, localDate, SLOT_LABELS, SLOTS, type Slot } from "@/lib/outfit";
 import { deleteOutfit, saveOutfit } from "@/lib/outfits";
 import { usePhotoUrls } from "@/lib/photo-urls";
+import { isComplete } from "@/lib/saved-outfits";
 import { getSupabase } from "@/lib/supabase/client";
 
 /** Outfit caricati per volta, dal più recente. */
@@ -33,6 +35,9 @@ export function OutfitHistory() {
   const [open, setOpen] = useState<HistoryOutfit | null>(null);
   // Dopo "Lo indosso di nuovo oggi": quali capi vanno nel cesto
   const [worn, setWorn] = useState<WornPiece[] | null>(null);
+  // "Salva questo outfit": l'outfit dello Storico da copiare tra i Salvati
+  const [keeping, setKeeping] = useState<HistoryOutfit | null>(null);
+  const [kept, setKept] = useState(false);
 
   /** Carica una pagina di outfit; `from` 0 ricomincia dall'inizio. */
   const load = useCallback(async (from: number) => {
@@ -97,6 +102,14 @@ export function OutfitHistory() {
 
   return (
     <div className="space-y-8 pb-6">
+      {kept && (
+        <p role="status" className="rounded-3xl bg-foreground px-5 py-4 text-[15px] text-background">
+          Outfit salvato.{" "}
+          <Link href="/outfit/salvati" className="underline underline-offset-2">
+            Apri i Salvati
+          </Link>
+        </p>
+      )}
       {days.map((day) => (
         <section key={day.wornOn}>
           <h2 className="mb-3 text-[17px] font-semibold">{dayLabel(day.wornOn)}</h2>
@@ -167,6 +180,23 @@ export function OutfitHistory() {
             setOpen(null);
             setOutfits((prev) => prev?.filter((outfit) => outfit.id !== open.id) ?? null);
           }}
+          onKeep={() => {
+            setOpen(null);
+            setKept(false);
+            setKeeping(open);
+          }}
+        />
+      )}
+
+      {keeping && (
+        <SaveOutfitSheet
+          pieces={pieces(keeping).map((piece) => ({ slot: piece.slot, itemId: piece.item.id }))}
+          onClose={() => setKeeping(null)}
+          onSaved={() => {
+            setKeeping(null);
+            setKept(true);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
         />
       )}
 
@@ -181,12 +211,14 @@ function OutfitSheet({
   onClose,
   onWornAgain,
   onDeleted,
+  onKeep,
 }: {
   outfit: HistoryOutfit;
   urls: Record<string, string>;
   onClose: () => void;
   onWornAgain: () => void;
   onDeleted: () => void;
+  onKeep: () => void;
 }) {
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -251,6 +283,11 @@ function OutfitSheet({
         {list.length > 0 && (
           <SheetButton onClick={wearAgain} disabled={pending} primary>
             {pending ? "Attendi…" : "Lo indosso di nuovo oggi"}
+          </SheetButton>
+        )}
+        {isComplete(list) && (
+          <SheetButton onClick={onKeep} disabled={pending}>
+            Salva questo outfit
           </SheetButton>
         )}
         <button
