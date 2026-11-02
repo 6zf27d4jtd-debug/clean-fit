@@ -14,7 +14,7 @@ import {
   type WardrobeLists,
 } from "@/components/item-details";
 import { BackLink, PageHeader } from "@/components/page-header";
-import { saveItem } from "@/lib/items";
+import { ITEM_LIMIT_MESSAGE, isItemLimitError, saveItem } from "@/lib/items";
 import { FULL_CROP, type CropRect } from "@/lib/photo";
 import { finishCutout, makeThumbnail, processPhoto } from "@/lib/photo-pipeline";
 
@@ -62,6 +62,8 @@ export function ImportQueue() {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [saving, setSaving] = useState<{ done: number; total: number } | null>(null);
+  // L'armadio ha raggiunto MAX_ITEMS: i capi successivi non si salvano finché non se ne elimina qualcuno
+  const [limitReached, setLimitReached] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const urls = useRef(new Set<string>());
   const nextId = useRef(0);
@@ -326,6 +328,7 @@ export function ImportQueue() {
   async function saveCards(targets: Card[]) {
     if (!userId || saving || !targets.length) return;
     setSelected(new Set());
+    setLimitReached(false);
     setSaving({ done: 0, total: targets.length });
     for (const [done, card] of targets.entries()) {
       setSaving({ done, total: targets.length });
@@ -344,6 +347,10 @@ export function ImportQueue() {
       } catch (error) {
         console.warn("Salvataggio non riuscito", error);
         setSave(card.id, "errore");
+        if (isItemLimitError(error)) {
+          setLimitReached(true);
+          break;
+        }
       }
     }
     setSaving(null);
@@ -619,7 +626,9 @@ export function ImportQueue() {
 
                   {card.save === "errore" && (
                     <div className="mt-2 flex items-center justify-between gap-2 px-1">
-                      <p className="text-[13px] leading-snug text-muted">Non salvato. Controlla la connessione.</p>
+                      <p className="text-[13px] leading-snug text-muted">
+                        {limitReached ? "Non salvato: armadio pieno." : "Non salvato. Controlla la connessione."}
+                      </p>
                       {!saving && (
                         <button
                           type="button"
@@ -666,7 +675,9 @@ export function ImportQueue() {
             {!saving && (missing || saveErrors > 0) && (
               <p role={missing ? undefined : "alert"} className="text-center text-[14px] text-muted">
                 {missing ??
-                  `${saveErrors === 1 ? "1 capo non salvato" : `${saveErrors} capi non salvati`}. Controlla la connessione e riprova.`}
+                  (limitReached
+                    ? ITEM_LIMIT_MESSAGE
+                    : `${saveErrors === 1 ? "1 capo non salvato" : `${saveErrors} capi non salvati`}. Controlla la connessione e riprova.`)}
               </p>
             )}
           </div>

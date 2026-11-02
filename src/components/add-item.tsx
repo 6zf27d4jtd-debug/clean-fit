@@ -7,7 +7,7 @@ import { CropEditor } from "@/components/crop-editor";
 import { EraserEditor } from "@/components/eraser-editor";
 import { PlusIcon } from "@/components/icons";
 import { EMPTY_DETAILS, ItemDetails, type ItemDetailsValue } from "@/components/item-details";
-import { saveItem } from "@/lib/items";
+import { ITEM_LIMIT_MESSAGE, isItemLimitError, saveItem } from "@/lib/items";
 import type { CropRect } from "@/lib/photo";
 import { finishCutout, processPhoto } from "@/lib/photo-pipeline";
 
@@ -199,7 +199,9 @@ export function AddItem() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       console.warn("Salvataggio non riuscito", error);
-      setSaveError("Il capo non è stato salvato. Controlla la connessione e riprova.");
+      setSaveError(
+        isItemLimitError(error) ? ITEM_LIMIT_MESSAGE : "Il capo non è stato salvato. Controlla la connessione e riprova.",
+      );
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,14 @@
 import { getSupabase, PHOTO_BUCKET } from "@/lib/supabase/client";
 
+/** Uguale al limite del trigger check_item_limit (migrazione 0007). */
+export const MAX_ITEMS = 300;
+export const ITEM_LIMIT_MESSAGE = `Hai raggiunto il limite di ${MAX_ITEMS} capi. Elimina qualche capo per aggiungerne altri.`;
+
+/** Errore del trigger check_item_limit: il capo non è stato salvato perché l'armadio è pieno. */
+export function isItemLimitError(error: unknown) {
+  return (error as { hint?: string } | null)?.hint === "limite_capi";
+}
+
 export type NewItem = {
   categoryId: string;
   groupingIds: string[];
