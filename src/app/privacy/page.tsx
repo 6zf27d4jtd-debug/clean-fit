@@ -41,6 +41,10 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p>
+            Ci si registra solo su invito: chi gestisce l’app vede l’indirizzo email di chi si è registrato con un
+            suo invito e la data della registrazione.
+          </p>
+          <p>
             Non raccogliamo la posizione, i contatti né altri dati del telefono. L’app non usa cookie pubblicitari né
             strumenti di statistica. Sul telefono restano solo le impostazioni dell’app (per esempio il tema) e quanto
             serve per restare collegati.

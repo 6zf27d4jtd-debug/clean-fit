@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AccountSection, RecentDaysSetting } from "@/components/account-section";
+import { AdminSection } from "@/components/admin-section";
 import { ChevronRightIcon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { ThemeSelector } from "@/components/theme-selector";
@@ -15,6 +16,7 @@ export default function ProfiloPage() {
         <ThemeSelector />
       </section>
       <RecentDaysSetting />
+      <AdminSection />
       <section className="mt-10 space-y-3">
         <h2 className="text-[13px] font-medium tracking-wide text-muted uppercase">Informazioni</h2>
         <ul className="divide-y divide-line rounded-2xl bg-surface ring-1 ring-line">
