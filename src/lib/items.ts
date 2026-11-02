@@ -70,7 +70,7 @@ export async function saveItem(userId: string, item: NewItem) {
 }
 
 /** crypto.randomUUID esiste solo in HTTPS: in http sulla rete locale si ripiega su getRandomValues. */
-function uuid() {
+export function uuid() {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;

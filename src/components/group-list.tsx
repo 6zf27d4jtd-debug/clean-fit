@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { BottomSheet, SheetButton } from "@/components/bottom-sheet";
+import { CoverEditor, coverLabel, CoverRow } from "@/components/cover-editor";
 import { PlusIcon } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
+import { deleteCoverPhoto, type Cover } from "@/lib/covers";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { countLabel } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase/client";
@@ -115,13 +117,20 @@ export function GroupSheet({
   position = 0,
   onClose,
   onDone,
+  onCoverChanged,
 }: {
-  group: Grouping | null;
+  group: (Grouping & Cover) | null;
   position?: number;
   onClose: () => void;
   onDone: (result: "salvato" | "eliminato") => void;
+  onCoverChanged?: () => void;
 }) {
   const [name, setName] = useState(group?.name ?? "");
+  const [editingCover, setEditingCover] = useState(false);
+  const [cover, setCoverState] = useState<Cover>({
+    cover_item_id: group?.cover_item_id ?? null,
+    cover_photo_path: group?.cover_photo_path ?? null,
+  });
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -150,51 +159,70 @@ export function GroupSheet({
     // I collegamenti capo–gruppo spariscono a cascata; i capi no
     const { error } = await getSupabase().from("groupings").delete().eq("id", group.id);
     setPending(false);
-    if (!error) return onDone("eliminato");
+    if (!error) {
+      // La foto di copertina caricata non serve più
+      await deleteCoverPhoto(cover.cover_photo_path);
+      return onDone("eliminato");
+    }
     setMessage("Gruppo non eliminato. Controlla la connessione e riprova.");
   }
 
   return (
     <BottomSheet label={group ? `Modifica ${group.name}` : "Nuovo gruppo"} onClose={onClose}>
-      <div className="space-y-6">
-        <h2 className="text-[20px] font-semibold">{group ? "Modifica gruppo" : "Nuovo gruppo"}</h2>
+      {editingCover && group ? (
+        <CoverEditor
+          table="groupings"
+          ownerId={group.id}
+          cover={cover}
+          onBack={() => setEditingCover(false)}
+          onChanged={(next) => {
+            setCoverState(next);
+            onCoverChanged?.();
+          }}
+        />
+      ) : (
+        <div className="space-y-6">
+          <h2 className="text-[20px] font-semibold">{group ? "Modifica gruppo" : "Nuovo gruppo"}</h2>
 
-        <label className="block">
-          <span className="mb-1.5 block text-[13px] font-medium text-muted">Nome</span>
-          <input
-            type="text"
-            maxLength={40}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="es. estiva"
-            className="h-13 w-full rounded-2xl bg-surface px-4 text-[16px] ring-1 ring-line outline-none focus:ring-2 focus:ring-foreground"
-          />
-        </label>
+          <label className="block">
+            <span className="mb-1.5 block text-[13px] font-medium text-muted">Nome</span>
+            <input
+              type="text"
+              maxLength={40}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="es. estiva"
+              className="h-13 w-full rounded-2xl bg-surface px-4 text-[16px] ring-1 ring-line outline-none focus:ring-2 focus:ring-foreground"
+            />
+          </label>
 
-        <div className="grid grid-cols-2 gap-3">
-          <SheetButton onClick={onClose} disabled={pending}>
-            Annulla
-          </SheetButton>
-          <SheetButton
-            onClick={save}
-            disabled={pending || !name.trim() || name.trim() === group?.name}
-            primary
-          >
-            {pending ? "Salvataggio…" : group ? "Salva" : "Crea"}
-          </SheetButton>
+          {group && <CoverRow label={coverLabel(cover)} onClick={() => setEditingCover(true)} disabled={pending} />}
+
+          <div className="grid grid-cols-2 gap-3">
+            <SheetButton onClick={onClose} disabled={pending}>
+              Annulla
+            </SheetButton>
+            <SheetButton
+              onClick={save}
+              disabled={pending || !name.trim() || name.trim() === group?.name}
+              primary
+            >
+              {pending ? "Salvataggio…" : group ? "Salva" : "Crea"}
+            </SheetButton>
+          </div>
+
+          {group && (
+            <button
+              type="button"
+              onClick={remove}
+              disabled={pending}
+              className="h-11 w-full text-[15px] font-medium text-muted disabled:opacity-40"
+            >
+              Elimina gruppo
+            </button>
+          )}
         </div>
-
-        {group && (
-          <button
-            type="button"
-            onClick={remove}
-            disabled={pending}
-            className="h-11 w-full text-[15px] font-medium text-muted disabled:opacity-40"
-          >
-            Elimina gruppo
-          </button>
-        )}
-      </div>
+      )}
 
       {message && (
         <p role="alert" className="mt-4 text-center text-[14px] text-muted">

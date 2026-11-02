@@ -7,6 +7,7 @@ import { GroupSheet } from "@/components/group-list";
 import { ItemCard } from "@/components/item-card";
 import { BackLink, ItemGridSkeleton, PageHeader } from "@/components/page-header";
 import { useFavoriteToggle, useLaundryToggle } from "@/lib/item-toggles";
+import type { Cover } from "@/lib/covers";
 import { countLabel } from "@/lib/format";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
@@ -18,7 +19,7 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const userId = useUser()?.id;
   const router = useRouter();
-  const [group, setGroup] = useState<Grouping | null>(null);
+  const [group, setGroup] = useState<(Grouping & Cover) | null>(null);
   const [items, setItems] = useState<ListItem[] | null>(null);
   const [error, setError] = useState<"rete" | "assente" | null>(null);
   const [editing, setEditing] = useState(false);
@@ -27,7 +28,7 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
     const supabase = getSupabase();
     // Gruppo e capi insieme; i capi filtrati dal collegamento con il gruppo (una richiesta, niente elenchi di id)
     const [groupResult, itemsResult] = await Promise.all([
-      supabase.from("groupings").select("id, name, position").eq("id", id).maybeSingle(),
+      supabase.from("groupings").select("id, name, position, cover_item_id, cover_photo_path").eq("id", id).maybeSingle(),
       supabase
         .from("items")
         .select("id, front_path, favorite, in_laundry_since, item_groupings!inner(grouping_id)")
@@ -41,7 +42,7 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
     const members: ListItem[] = (itemsResult.data as (ListItem & { item_groupings: unknown })[]).map(
       ({ id, front_path, favorite, in_laundry_since }) => ({ id, front_path, favorite, in_laundry_since }),
     );
-    setGroup(groupResult.data as Grouping);
+    setGroup(groupResult.data as Grouping & Cover);
     setItems(members);
   }, [id]);
 
@@ -113,6 +114,7 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
             if (result === "eliminato") return router.replace("/gruppi");
             await load();
           }}
+          onCoverChanged={load}
         />
       )}
     </>

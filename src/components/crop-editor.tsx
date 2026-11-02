@@ -31,12 +31,17 @@ export function CropEditor({
   imageUrl,
   label,
   initialCrop = DEFAULT_CROP,
+  title = `Inquadra il capo · ${label}`,
+  hint = "Trascina gli angoli attorno al capo, lasciando fuori letto, gambe e scarpe.",
   onCancel,
   onConfirm,
 }: {
   imageUrl: string;
   label: string;
   initialCrop?: CropRect;
+  /** Titolo e spiegazione in alto; di serie quelli per i capi. */
+  title?: string;
+  hint?: string;
   onCancel: () => void;
   onConfirm: (crop: CropRect) => void;
 }) {
@@ -107,15 +112,13 @@ export function CropEditor({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Inquadra il capo · ${label}`}
+      aria-label={title}
       className="fixed inset-0 z-50 flex flex-col bg-black text-white"
       style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <header className="px-5 pt-4 pb-3 text-center">
-        <h2 className="text-[17px] font-semibold">Inquadra il capo · {label}</h2>
-        <p className="mt-1 text-[14px] text-white/70">
-          Trascina gli angoli attorno al capo, lasciando fuori letto, gambe e scarpe.
-        </p>
+        <h2 className="text-[17px] font-semibold">{title}</h2>
+        <p className="mt-1 text-[14px] text-white/70">{hint}</p>
       </header>
 
       <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-4">

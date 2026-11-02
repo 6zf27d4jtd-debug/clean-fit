@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
 import { BottomSheet, SheetButton } from "@/components/bottom-sheet";
+import { CoverEditor, coverLabel, CoverRow } from "@/components/cover-editor";
 import { ChevronRightIcon, PlusIcon } from "@/components/icons";
 import { BackLink, PageHeader } from "@/components/page-header";
 import { ROLE_LABELS, type CategoryRole } from "@/lib/categories";
+import { deleteCoverPhoto, type Cover } from "@/lib/covers";
 import { countLabel } from "@/lib/format";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category } from "@/lib/types";
 
 /** underlayer: categoria "sopra" che negli outfit si porta sotto un altro capo (strato). */
-type CategoryWithCount = Category & { underlayer: boolean; items: { count: number }[] };
+type CategoryWithCount = Category & Cover & { underlayer: boolean; items: { count: number }[] };
 
 /** Pannello aperto: una categoria esistente da modificare, oppure "nuova". */
 type Editing = { category: CategoryWithCount } | { category: null };
@@ -27,7 +29,7 @@ export function CategoryManager() {
   const load = useCallback(async () => {
     const { data, error } = await getSupabase()
       .from("categories")
-      .select("id, name, role, position, underlayer, items(count)")
+      .select("id, name, role, position, underlayer, cover_item_id, cover_photo_path, items(count)")
       .order("position");
     if (error) return setError(true);
     setCategories(data as CategoryWithCount[]);
@@ -95,6 +97,7 @@ export function CategoryManager() {
             setEditing(null);
             await load();
           }}
+          onCoverChanged={load}
         />
       )}
     </>
@@ -107,16 +110,22 @@ function CategorySheet({
   categories,
   onClose,
   onDone,
+  onCoverChanged,
 }: {
   category: CategoryWithCount | null;
   categories: CategoryWithCount[];
   onClose: () => void;
   onDone: () => void;
+  onCoverChanged: () => void;
 }) {
   const [name, setName] = useState(category?.name ?? "");
   const [role, setRole] = useState<CategoryRole>(category?.role ?? "sopra");
   const [underlayer, setUnderlayer] = useState(category?.underlayer ?? false);
-  const [step, setStep] = useState<"modifica" | "sposta">("modifica");
+  const [step, setStep] = useState<"modifica" | "sposta" | "copertina">("modifica");
+  const [cover, setCoverState] = useState<Cover>({
+    cover_item_id: category?.cover_item_id ?? null,
+    cover_photo_path: category?.cover_photo_path ?? null,
+  });
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -156,15 +165,28 @@ function CategorySheet({
   function remove(moveTo?: string) {
     if (!category) return;
     if (!moveTo && !window.confirm(`Eliminare la categoria “${category.name}”?`)) return;
-    return run(
-      async () => getSupabase().rpc("delete_category", { category: category.id, move_to: moveTo ?? null }),
-      "Categoria non eliminata. Controlla la connessione e riprova.",
-    );
+    return run(async () => {
+      const result = await getSupabase().rpc("delete_category", { category: category.id, move_to: moveTo ?? null });
+      // La foto di copertina caricata non serve più
+      if (!result.error) await deleteCoverPhoto(cover.cover_photo_path);
+      return result;
+    }, "Categoria non eliminata. Controlla la connessione e riprova.");
   }
 
   return (
     <BottomSheet label={category ? `Modifica ${category.name}` : "Nuova categoria"} onClose={onClose}>
-      {step === "modifica" ? (
+      {step === "copertina" && category ? (
+        <CoverEditor
+          table="categories"
+          ownerId={category.id}
+          cover={cover}
+          onBack={() => setStep("modifica")}
+          onChanged={(next) => {
+            setCoverState(next);
+            onCoverChanged();
+          }}
+        />
+      ) : step === "modifica" ? (
         <div className="space-y-6">
           <h2 className="text-[20px] font-semibold">{category ? "Modifica categoria" : "Nuova categoria"}</h2>
 
@@ -226,6 +248,8 @@ function CategorySheet({
               </span>
             </button>
           )}
+
+          {category && <CoverRow label={coverLabel(cover)} onClick={() => setStep("copertina")} disabled={pending} />}
 
           <div className="grid grid-cols-2 gap-3">
             <SheetButton onClick={onClose} disabled={pending}>
