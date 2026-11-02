@@ -54,6 +54,23 @@ export function RecentDaysSetting() {
   );
 }
 
+/** Tutti i file sotto una cartella dello Storage, sottocartelle comprese (l'elenco dello Storage è di un livello). */
+async function listFolder(prefix: string): Promise<string[]> {
+  const bucket = getSupabase().storage.from(PHOTO_BUCKET);
+  const paths: string[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await bucket.list(prefix, { limit: pageSize, offset });
+    if (error) throw error;
+    for (const entry of data) {
+      // Le cartelle non hanno id
+      if (entry.id) paths.push(`${prefix}/${entry.name}`);
+      else paths.push(...(await listFolder(`${prefix}/${entry.name}`)));
+    }
+    if (data.length < pageSize) return paths;
+  }
+}
+
 export function AccountSection() {
   const user = useUser();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -71,10 +88,14 @@ export function AccountSection() {
     setError(null);
     const supabase = getSupabase();
 
-    // Prima le foto (lo Storage non si svuota a cascata), poi l'utente con tutti i suoi dati.
-    const { data: items, error: itemsError } = await supabase.from("items").select("front_path, back_path");
-    if (itemsError) return fail();
-    const paths = (items ?? []).flatMap((item) => [item.front_path, item.back_path]).filter(Boolean) as string[];
+    // Prima le foto (lo Storage non si svuota a cascata), poi l'utente con tutti i suoi dati. Si svuota tutta la
+    // cartella dell'utente, non solo le foto dei capi: anche i file rimasti da salvataggi interrotti.
+    let paths: string[];
+    try {
+      paths = await listFolder(user.id);
+    } catch {
+      return fail();
+    }
     for (let start = 0; start < paths.length; start += 100) {
       const { error } = await supabase.storage.from(PHOTO_BUCKET).remove(paths.slice(start, start + 100));
       if (error) return fail();
