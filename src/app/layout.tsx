@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import { Suspense } from "react";
 import { AuthProvider, Splash } from "@/components/auth-provider";
 import { BottomNav } from "@/components/bottom-nav";
+import splashScreens from "@/lib/splash-screens.json";
 import { themeScript } from "@/lib/theme";
 import "./globals.css";
 
@@ -19,6 +20,15 @@ export const metadata: Metadata = {
     capable: true,
     title: "Clean Fit",
     statusBarStyle: "default",
+    // Immagini di avvio di iOS, una per misura di schermo e tema (scripts/generate-splash.mjs)
+    startupImage: splashScreens.flatMap(({ width, height, ratio }) =>
+      (["light", "dark"] as const).map((theme) => ({
+        url: `/splash/splash-${width * ratio}x${height * ratio}-${theme}.png`,
+        media:
+          `(device-width: ${width}px) and (device-height: ${height}px) and (-webkit-device-pixel-ratio: ${ratio}) ` +
+          `and (orientation: portrait) and (prefers-color-scheme: ${theme})`,
+      })),
+    ),
   },
   icons: {
     apple: "/icons/apple-touch-icon.png",

@@ -3,7 +3,6 @@
 import type { User } from "@supabase/supabase-js";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { HangerIcon } from "@/components/icons";
 import { clearPhotoUrlCache } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -128,11 +127,21 @@ export function useUser() {
   return useContext(AuthContext);
 }
 
-/** Schermata di attesa (gruccia): anche il ripiego del layout mentre l'indirizzo non è ancora noto. */
+/**
+ * Schermata di attesa: anche il ripiego del layout mentre l'indirizzo non è ancora noto.
+ * Uguale all'immagine di avvio di iOS (scripts/generate-splash.mjs: gruccia 96, scritta 30, spazio 12),
+ * così quando l'app parte non si vede il passaggio.
+ */
 export function Splash() {
   return (
-    <div className="flex min-h-dvh px-8 items-center justify-center text-muted">
-      <HangerIcon width={40} height={40} className="animate-pulse" />
+    <div className="fixed inset-0 flex flex-col items-center justify-center bg-background text-foreground">
+      <svg viewBox="0 0 100 100" width={96} height={96} aria-hidden="true">
+        <g fill="none" stroke="currentColor" strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M44 27 A6 6 0 1 1 50 33 L50 38" />
+          <path d="M50 38 L18 61 Q15 64 19 64 L81 64 Q85 64 82 61 Z" />
+        </g>
+      </svg>
+      <p className="mt-3 text-[30px] leading-none tracking-[-0.02em]">Clean Fit</p>
     </div>
   );
 }

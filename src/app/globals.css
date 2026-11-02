@@ -63,3 +63,103 @@ nav {
 @utility pb-nav {
   padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
 }
+
+/* Animazioni leggere. Con "Riduci movimento" dell'iPhone (prefers-reduced-motion) solo dissolvenze brevi. */
+@keyframes cf-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes cf-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes cf-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes cf-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes cf-sheet-out {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes cf-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes cf-pop {
+  40% {
+    transform: scale(1.25);
+  }
+}
+
+/* Pagine: entrano a ogni apertura. Next nasconde le pagine già viste invece di smontarle: quando ricompaiono
+   l'animazione riparte. "backwards" e non "both": finita l'animazione non resta un transform, che cambierebbe la
+   posizione dei pannelli fissi dentro la pagina. */
+main > * {
+  animation: cf-rise-in 220ms ease-out backwards;
+}
+
+/* Foto: compaiono in dissolvenza invece che a scatti */
+main img {
+  animation: cf-fade-in 250ms ease-out backwards;
+}
+
+.cf-backdrop {
+  animation: cf-fade-in 200ms ease-out backwards;
+}
+
+.cf-backdrop[data-closing] {
+  animation: cf-fade-out 200ms ease-in forwards;
+}
+
+.cf-sheet {
+  animation: cf-sheet-in 280ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+}
+
+.cf-sheet[data-closing] {
+  animation: cf-sheet-out 200ms ease-in forwards;
+}
+
+/* Capi nuovi dopo "Rigenera" o "Cambia" */
+.cf-pop-in {
+  animation: cf-pop-in 220ms ease-out backwards;
+}
+
+/* Cuoricino e cesto quando si attivano */
+.cf-pop {
+  animation: cf-pop 300ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main > *,
+  .cf-pop-in,
+  .cf-sheet {
+    animation: cf-fade-in 150ms ease-out backwards;
+  }
+
+  .cf-sheet[data-closing] {
+    animation: cf-fade-out 150ms ease-in forwards;
+  }
+
+  .cf-pop,
+  .animate-pulse {
+    animation: none;
+  }
+}

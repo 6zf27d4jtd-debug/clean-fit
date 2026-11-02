@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BasketIcon, HeartIcon } from "@/components/icons";
+import { Pop } from "@/components/pop";
 
 /**
  * Foto di un capo (3:4, fondo avorio già nella foto) con il cuoricino dei preferiti e, se richiesto,
@@ -74,7 +75,9 @@ export function FavoriteButton({
     >
       {/* Le foto hanno sempre il fondo avorio: il cuore resta scuro anche nel tema scuro */}
       <span className="flex size-8 items-center justify-center rounded-full bg-white/70 text-neutral-900 backdrop-blur-sm">
-        <HeartIcon filled={favorite} width={18} height={18} strokeWidth={1.9} />
+        <Pop active={favorite}>
+          <HeartIcon filled={favorite} width={18} height={18} strokeWidth={1.9} />
+        </Pop>
       </span>
     </button>
   );

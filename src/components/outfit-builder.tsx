@@ -411,8 +411,14 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
               >
                 {item ? (
                   urls[item.front_path] && (
+                    // Chiave = capo: dopo "Rigenera" o "Cambia" il capo nuovo entra con l'animazione
                     // eslint-disable-next-line @next/next/no-img-element -- link firmato di Supabase
-                    <img src={urls[item.front_path]} alt="" className="h-full w-full object-cover" />
+                    <img
+                      key={item.id}
+                      src={urls[item.front_path]}
+                      alt=""
+                      className="cf-pop-in h-full w-full object-cover"
+                    />
                   )
                 ) : (
                   <span className="px-3 text-center text-[13px] leading-snug text-muted">

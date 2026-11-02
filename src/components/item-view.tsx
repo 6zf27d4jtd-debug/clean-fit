@@ -7,6 +7,7 @@ import { BasketIcon } from "@/components/icons";
 import { FavoriteButton, LaundryLabel } from "@/components/item-card";
 import { ItemDetails, type ItemDetailsValue } from "@/components/item-details";
 import { BackLink } from "@/components/page-header";
+import { Pop } from "@/components/pop";
 import { requestFavorite, requestLaundry } from "@/lib/item-toggles";
 import { deleteItem, updateItem } from "@/lib/items";
 import { dayLabel, OUTFIT_ROLES } from "@/lib/outfit";
@@ -235,7 +236,9 @@ export function ItemView({ params }: { params: Promise<{ id: string }> }) {
               aria-pressed={!!item.in_laundry_since}
               className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-surface text-[16px] font-medium ring-1 ring-line"
             >
-              <BasketIcon filled={!!item.in_laundry_since} width={20} height={20} />
+              <Pop active={!!item.in_laundry_since}>
+                <BasketIcon filled={!!item.in_laundry_since} width={20} height={20} />
+              </Pop>
               {item.in_laundry_since ? "Lavato: togli dal cesto" : "Metti nel cesto"}
             </button>
             <button

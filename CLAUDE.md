@@ -76,6 +76,8 @@ PWA per organizzare l'armadio, pensata prima di tutto per iPhone (aggiunta alla 
 - Pulsanti grandi (almeno 44px), aree sicure dell'iPhone rispettate (`env(safe-area-inset-*)`).
 - Tema chiaro/scuro: segue il sistema di default, scelta manuale dal Profilo (salvata in localStorage, classe `.dark` su `<html>`).
 - Icona: gruccia stilizzata nera su fondo avorio.
+- Animazioni leggere solo CSS (classi `cf-*` e regole su `main` in `globals.css`): pagine che entrano, pannelli dal basso (scendono solo se chiusi toccando fuori), foto in dissolvenza, capi nuovi dopo Rigenera, "pop" di cuoricino e cesto (`pop.tsx`). Con "Riduci movimento" (`prefers-reduced-motion`) solo dissolvenze brevi e niente pulsazioni. Mai lasciare un `transform` finito su `main > *`: sposterebbe i pannelli fissi.
+- Schermata di apertura: immagini di avvio di iOS chiare e scure in `public/splash/`, generate da `scripts/generate-splash.mjs` (misure in `src/lib/splash-screens.json`, da aggiornare con i nuovi iPhone); `Splash` in `auth-provider.tsx` ha lo stesso disegno. Se cambiano colori o gruccia, rigenerare le immagini. iOS le legge quando si aggiunge l'app alla Home.
 
 ## Stato delle fasi
 - [x] Fase 0 — Base: progetto, navigazione, tema, PWA, icona
