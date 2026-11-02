@@ -15,8 +15,10 @@ type AuthState =
 const AuthContext = createContext<User | null>(null);
 const RecoveryContext = createContext<() => void>(() => {});
 
-/** Pagine raggiungibili senza account. */
+/** Pagine raggiungibili solo senza account (con l'account si va alla Home). */
 const PUBLIC_PATHS = ["/accedi"];
+/** Pagine raggiungibili da tutti, con o senza account. */
+const OPEN_PATHS = ["/privacy"];
 
 /**
  * Recupero password: il codice giusto apre la sessione, ma prima di entrare si sceglie la password nuova.
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const onNewPassword = pathname === NEW_PASSWORD_PATH;
   const redirectTo =
-    state.status !== "ready"
+    state.status !== "ready" || (OPEN_PATHS.includes(pathname) && !recovering)
       ? null
       : !state.user
         ? isPublic

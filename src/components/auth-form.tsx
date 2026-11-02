@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { authErrorMessage, MIN_PASSWORD_LENGTH } from "@/lib/auth-errors";
 import { getSupabase } from "@/lib/supabase/client";
@@ -279,6 +280,19 @@ export function AuthForm() {
               "recupero-codice": "Continua",
             }[step]}
       </button>
+
+      {step === "registrati" && (
+        <p className="px-1 text-center text-[13px] leading-snug text-muted">
+          Creando l’account confermi di aver letto{" "}
+          <Link
+            href={inviteCode.trim() ? `/privacy?invito=${encodeURIComponent(inviteCode.trim())}` : "/privacy"}
+            className="font-medium text-foreground underline underline-offset-2"
+          >
+            come trattiamo i tuoi dati
+          </Link>
+          .
+        </p>
+      )}
 
       {step === "accedi" && (
         <LinkButton onClick={() => go("recupero")} disabled={pending}>
