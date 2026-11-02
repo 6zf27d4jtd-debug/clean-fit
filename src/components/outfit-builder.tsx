@@ -9,6 +9,7 @@ import { LockIcon } from "@/components/icons";
 import { LaundryPrompt, type WornPiece } from "@/components/laundry-prompt";
 import { SaveOutfitSheet } from "@/components/save-outfit-sheet";
 import type { CategoryRole } from "@/lib/categories";
+import { accentLabels, colorInfo, matchesColors } from "@/lib/colors";
 import {
   activeSlots,
   candidatesFor,
@@ -31,10 +32,23 @@ import type { Grouping } from "@/lib/types";
 type ItemRow = {
   id: string;
   front_path: string;
+  color: string | null;
   in_laundry_since: string | null;
   category: { role: CategoryRole; underlayer: boolean } | null;
   item_groupings: { grouping_id: string }[];
 };
+
+/** Scelta "Abbina i colori" ricordata su questo telefono (attiva se non c'è). */
+const MATCH_COLORS_KEY = "cleanfit:abbina-colori";
+
+/** Tentativi del generatore per trovare un outfit con i colori abbinati prima di arrendersi. */
+const COLOR_ATTEMPTS = 30;
+
+const shuffle = <T,>(list: T[]) =>
+  list
+    .map((value) => ({ value, sort: Math.random() }))
+    .sort((a, b) => a.sort - b.sort)
+    .map(({ value }) => value);
 
 type Loaded = {
   items: OutfitCandidate[];
@@ -66,7 +80,12 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
   const router = useRouter();
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState(false);
-  const [options, setOptions] = useState<OutfitOptions>({ groupIds: [], capospalla: false, strato: false });
+  const [options, setOptions] = useState<OutfitOptions>({
+    groupIds: [],
+    capospalla: false,
+    strato: false,
+    matchColors: true,
+  });
   const [includeRecent, setIncludeRecent] = useState(false);
   const [outfit, setOutfit] = useState<Partial<Record<Slot, string>>>({});
   // Posti bloccati: "Genera" non li cambia (anche quelli scelti a mano)
@@ -85,13 +104,22 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
   const [keptKey, setKeptKey] = useState<string | null>(null);
 
   useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage è leggibile solo nel browser
+      if (localStorage.getItem(MATCH_COLORS_KEY) === "no") setOptions((prev) => ({ ...prev, matchColors: false }));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     if (!userId) return;
     const supabase = getSupabase();
     Promise.all([
       supabase.from("profiles").select("recent_days").eq("id", userId).single(),
       supabase
         .from("items")
-        .select("id, front_path, in_laundry_since, category:categories(role, underlayer), item_groupings(grouping_id)"),
+        .select(
+          "id, front_path, color, in_laundry_since, category:categories(role, underlayer), item_groupings(grouping_id)",
+        ),
       supabase.from("groupings").select("id, name, position").order("position").order("name"),
       // Il massimo impostabile è 90 giorni: il filtro sul numero scelto si fa qui sotto
       supabase.from("outfit_items").select("item_id, outfits!inner(worn_on)").gte("outfits.worn_on", localDate(-89)),
@@ -115,6 +143,7 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
                   underlayer: item.category.underlayer,
                   groupingIds: item.item_groupings.map((link) => link.grouping_id),
                   inLaundry: !!item.in_laundry_since,
+                  color: colorInfo(item.color),
                 },
               ]
             : [],
@@ -141,6 +170,15 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
   const outfitKey = slots.map((slot) => `${slot}:${outfit[slot] ?? ""}`).join("|");
   const missingRequired = (["sopra", "sotto", "scarpe"] as const).some((slot) => !outfit[slot]);
   const byId = new Map(data?.items.map((item) => [item.id, item]));
+  /** Colori dei capi scelti negli altri posti (escluso `except`). */
+  const colorsBesides = (except?: Slot) =>
+    slots.flatMap((slot) => {
+      const item = slot !== except && outfit[slot] ? byId.get(outfit[slot]) : undefined;
+      return item ? [item.color] : [];
+    });
+  const accents = accentLabels(colorsBesides());
+  const clashes = (item: OutfitCandidate, slot: Slot) =>
+    options.matchColors && !matchesColors(item.color, colorsBesides(slot));
   const pickerItems =
     picking && data
       ? data.items
@@ -193,20 +231,51 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
     }
   }
 
+  /**
+   * Un outfit a caso. Con "Abbina i colori" i posti si riempiono in ordine casuale (prima quelli bloccati) scegliendo
+   * solo capi che si abbinano ai precedenti; se un posto resta senza capi adatti si riprova, e alla fine si tiene
+   * comunque l'ultimo tentativo: l'avviso sotto i capi dice quali colori non si abbinano.
+   */
   function generate(withRecent = includeRecent) {
     setGenerated(true);
     setOutfit((prev) => {
-      const next: Partial<Record<Slot, string>> = {};
-      for (const slot of slots) {
-        next[slot] = locked.has(slot) ? prev[slot] : pickRandom(candidates(slot, withRecent), prev[slot])?.id;
+      let next: Partial<Record<Slot, string>> = {};
+      for (let attempt = 0; attempt < (options.matchColors ? COLOR_ATTEMPTS : 1); attempt++) {
+        next = {};
+        let matched = true;
+        const chosen = slots.filter((slot) => locked.has(slot)).flatMap((slot) => {
+          next[slot] = prev[slot];
+          const item = prev[slot] ? byId.get(prev[slot]) : undefined;
+          return item ? [item.color] : [];
+        });
+        for (const slot of shuffle(slots.filter((slot) => !locked.has(slot)))) {
+          const all = candidates(slot, withRecent);
+          const fitting = options.matchColors ? all.filter((item) => matchesColors(item.color, chosen)) : all;
+          if (fitting.length === 0 && all.length > 0) matched = false;
+          const item = pickRandom(fitting.length ? fitting : all, prev[slot]);
+          next[slot] = item?.id;
+          if (item) chosen.push(item.color);
+        }
+        if (matched && accentLabels(chosen).length <= 1) break;
       }
       return next;
     });
   }
 
   function change(slot: Slot) {
-    const item = pickRandom(candidates(slot), outfit[slot]);
+    const all = candidates(slot);
+    const fitting = options.matchColors ? all.filter((item) => !clashes(item, slot)) : all;
+    const item = pickRandom(fitting.length ? fitting : all, outfit[slot]);
     if (item) setOutfit((prev) => ({ ...prev, [slot]: item.id }));
+  }
+
+  function toggleMatchColors() {
+    const enabled = !options.matchColors;
+    setOptions((prev) => ({ ...prev, matchColors: enabled }));
+    try {
+      if (enabled) localStorage.removeItem(MATCH_COLORS_KEY);
+      else localStorage.setItem(MATCH_COLORS_KEY, "no");
+    } catch {}
   }
 
   function choose(slot: Slot, itemId: string) {
@@ -283,6 +352,9 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
         <div className="grid grid-cols-2 gap-3">
           <Switch checked={options.capospalla} onClick={() => toggleOption("capospalla")} label="Capospalla" />
           <Switch checked={options.strato} onClick={() => toggleOption("strato")} label="Strato sotto" />
+          <div className="col-span-2">
+            <Switch checked={options.matchColors} onClick={toggleMatchColors} label="Abbina i colori" />
+          </div>
         </div>
 
         <button
@@ -379,6 +451,15 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
           );
         })}
       </ul>
+
+      {options.matchColors && accents.length > 1 && (
+        <p role="status" className="-mt-2 px-1 text-center text-[14px] leading-snug text-muted">
+          {accents.length === 2
+            ? `Due colori accesi: ${accents[0]} e ${accents[1]}.`
+            : `Colori accesi: ${accents.slice(0, -1).join(", ")} e ${accents.at(-1)}.`}{" "}
+          Con un solo colore acceso l’outfit si abbina meglio.
+        </p>
+      )}
 
       <div className="space-y-2">
         {editId && (
@@ -491,7 +572,7 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
             <ul className="grid grid-cols-3 gap-2 pb-2">
               {pickerItems.map((item) => {
                 const current = outfit[picking] === item.id;
-                const outside = !inGroups(item, options.groupIds);
+                const outside = !inGroups(item, options.groupIds) || clashes(item, picking);
                 return (
                   <li key={item.id}>
                     <button
@@ -519,6 +600,9 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
           )}
           {options.groupIds.length > 0 && pickerItems.some((item) => !inGroups(item, options.groupIds)) && (
             <p className="pb-2 text-[13px] text-muted">Più chiari: capi fuori dai gruppi scelti.</p>
+          )}
+          {pickerItems.some((item) => clashes(item, picking)) && (
+            <p className="pb-2 text-[13px] text-muted">Più chiari: colori che non si abbinano al resto dell’outfit.</p>
           )}
         </BottomSheet>
       )}
@@ -582,7 +666,7 @@ function Switch({ checked, onClick, label }: { checked: boolean; onClick: () => 
       role="switch"
       aria-checked={checked}
       onClick={onClick}
-      className="flex h-13 items-center justify-between gap-2 rounded-2xl bg-surface pr-3 pl-4 ring-1 ring-line"
+      className="flex h-13 w-full items-center justify-between gap-2 rounded-2xl bg-surface pr-3 pl-4 ring-1 ring-line"
     >
       <span className="text-[15px] font-medium">{label}</span>
       <span

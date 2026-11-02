@@ -10,7 +10,7 @@ export type ItemDetailsValue = { categoryId: string | null; groupingIds: string[
 
 export const EMPTY_DETAILS: ItemDetailsValue = { categoryId: null, groupingIds: [], color: "", notes: "" };
 
-const COLOR_SUGGESTIONS = ["Nero", "Bianco", "Grigio", "Blu", "Beige", "Marrone", "Verde", "Rosso"];
+const COLOR_SUGGESTIONS = ["Nero", "Bianco", "Grigio", "Blu", "Blu scuro", "Beige", "Panna", "Marrone", "Verde", "Rosso"];
 
 /** Categorie e gruppi dell'utente; `addGrouping` aggiunge all'elenco un gruppo appena creato. */
 export type WardrobeLists = {

@@ -1,4 +1,5 @@
 import type { CategoryRole } from "@/lib/categories";
+import type { ColorInfo } from "@/lib/colors";
 
 // Regole degli outfit: sopra + sotto + scarpe, capospalla e strato sotto facoltativi.
 // Lo strato è un capo "sopra" di una categoria che si porta sotto (t-shirt, longsleeve), sotto felpe e camicie.
@@ -28,9 +29,11 @@ export type OutfitCandidate = {
   groupingIds: string[];
   /** Nel cesto (da lavare): mai proposto, si può solo scegliere a mano. */
   inLaundry: boolean;
+  color: ColorInfo;
 };
 
-export type OutfitOptions = { groupIds: string[]; capospalla: boolean; strato: boolean };
+/** matchColors: al massimo un colore acceso per outfit (src/lib/colors.ts). */
+export type OutfitOptions = { groupIds: string[]; capospalla: boolean; strato: boolean; matchColors: boolean };
 
 export function activeSlots(options: OutfitOptions) {
   return SLOTS.filter((slot) => (slot !== "capospalla" || options.capospalla) && (slot !== "strato" || options.strato));
