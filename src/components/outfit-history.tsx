@@ -10,6 +10,7 @@ import { dayLabel, localDate, SLOT_LABELS, SLOTS, type Slot } from "@/lib/outfit
 import { deleteOutfit, saveOutfit } from "@/lib/outfits";
 import { usePhotoUrls } from "@/lib/photo-urls";
 import { isComplete } from "@/lib/saved-outfits";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase } from "@/lib/supabase/client";
 
 /** Outfit caricati per volta, dal più recente. */
@@ -41,9 +42,7 @@ export function OutfitHistory() {
 
   /** Carica una pagina di outfit; `from` 0 ricomincia dall'inizio. */
   const load = useCallback(async (from: number) => {
-    const { data, error } = await getSupabase()
-      .from("outfits")
-      .select("id, worn_on, outfit_items(slot, item:items(id, front_path))")
+    const { data, error } = await getSupabase().from(QUERIES.history.table).select(QUERIES.history.select)
       .order("worn_on", { ascending: false })
       .order("created_at", { ascending: false })
       .range(from, from + PAGE_SIZE - 1);

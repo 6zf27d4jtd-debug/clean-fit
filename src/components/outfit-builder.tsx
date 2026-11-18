@@ -25,7 +25,8 @@ import {
 } from "@/lib/outfit";
 import { saveOutfit } from "@/lib/outfits";
 import { usePhotoUrls } from "@/lib/photo-urls";
-import { SAVED_OUTFIT_SELECT, type SavedOutfit } from "@/lib/saved-outfits";
+import { QUERIES } from "@/lib/queries";
+import type { SavedOutfit } from "@/lib/saved-outfits";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Grouping } from "@/lib/types";
 
@@ -114,16 +115,17 @@ export function OutfitBuilder({ editId }: { editId?: string }) {
     if (!userId) return;
     const supabase = getSupabase();
     Promise.all([
-      supabase.from("profiles").select("recent_days").eq("id", userId).single(),
-      supabase
-        .from("items")
-        .select(
-          "id, front_path, color, in_laundry_since, category:categories(role, underlayer), item_groupings(grouping_id)",
-        ),
-      supabase.from("groupings").select("id, name, position").order("position").order("name"),
+      supabase.from(QUERIES.profileRecentDays.table).select(QUERIES.profileRecentDays.select).eq("id", userId).single(),
+      supabase.from(QUERIES.outfitCandidate.table).select(QUERIES.outfitCandidate.select),
+      supabase.from(QUERIES.grouping.table).select(QUERIES.grouping.select).order("position").order("name"),
       // Il massimo impostabile è 90 giorni: il filtro sul numero scelto si fa qui sotto
-      supabase.from("outfit_items").select("item_id, outfits!inner(worn_on)").gte("outfits.worn_on", localDate(-89)),
-      editId ? supabase.from("saved_outfits").select(SAVED_OUTFIT_SELECT).eq("id", editId).maybeSingle() : null,
+      supabase
+        .from(QUERIES.recentlyWorn.table)
+        .select(QUERIES.recentlyWorn.select)
+        .gte("outfits.worn_on", localDate(-89)),
+      editId
+        ? supabase.from(QUERIES.savedOutfit.table).select(QUERIES.savedOutfit.select).eq("id", editId).maybeSingle()
+        : null,
     ]).then(([profileResult, itemsResult, groupingsResult, wornResult, savedResult]) => {
       if (profileResult.error || itemsResult.error || groupingsResult.error || wornResult.error || savedResult?.error) {
         return setError(true);

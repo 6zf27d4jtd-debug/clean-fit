@@ -9,13 +9,13 @@ import { OccasionChip, SaveOutfitSheet } from "@/components/save-outfit-sheet";
 import { localDate, SLOT_LABELS, SLOTS } from "@/lib/outfit";
 import { saveOutfit } from "@/lib/outfits";
 import { usePhotoUrls } from "@/lib/photo-urls";
+import { QUERIES } from "@/lib/queries";
 import {
   deleteOccasion,
   deleteSavedOutfit,
   fetchOccasions,
   isComplete,
   renameOccasion,
-  SAVED_OUTFIT_SELECT,
   type Occasion,
   type SavedOutfit,
   type SavedPiece,
@@ -54,7 +54,10 @@ export function SavedOutfits() {
 
   const load = useCallback(async () => {
     const [outfitsResult, occasionsResult] = await Promise.allSettled([
-      getSupabase().from("saved_outfits").select(SAVED_OUTFIT_SELECT).order("created_at", { ascending: false }),
+      getSupabase()
+        .from(QUERIES.savedOutfit.table)
+        .select(QUERIES.savedOutfit.select)
+        .order("created_at", { ascending: false }),
       fetchOccasions(),
     ]);
     if (outfitsResult.status === "rejected" || outfitsResult.value.error || occasionsResult.status === "rejected") {

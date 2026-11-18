@@ -1,5 +1,6 @@
 import type { Slot } from "@/lib/outfit";
 import type { OutfitPiece } from "@/lib/outfits";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase } from "@/lib/supabase/client";
 
 // Outfit salvati (migrazione 0009): si indossano quando si vuole e si raggruppano per occasione.
@@ -31,14 +32,8 @@ export function limitMessage(error: unknown) {
   return hint ? LIMIT_MESSAGES[hint] : undefined;
 }
 
-export const SAVED_OUTFIT_SELECT =
-  "id, name, created_at, saved_outfit_items(slot, item:items(id, front_path, in_laundry_since)), " +
-  "saved_outfit_occasions(occasion_id)";
-
 export async function fetchOccasions() {
-  const { data, error } = await getSupabase()
-    .from("occasions")
-    .select("id, name, position")
+  const { data, error } = await getSupabase().from(QUERIES.occasion.table).select(QUERIES.occasion.select)
     .order("position")
     .order("name");
   if (error) throw error;
@@ -46,7 +41,10 @@ export async function fetchOccasions() {
 }
 
 export async function createOccasion(name: string) {
-  const { data, error } = await getSupabase().from("occasions").insert({ name: name.trim() }).select("id, name, position");
+  const { data, error } = await getSupabase()
+    .from("occasions")
+    .insert({ name: name.trim() })
+    .select(QUERIES.occasion.select);
   if (error) throw error;
   return data[0] as Occasion;
 }

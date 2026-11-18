@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useUser } from "@/components/auth-provider";
 import { PlusIcon } from "@/components/icons";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category, Grouping } from "@/lib/types";
 
@@ -31,8 +32,8 @@ export function useWardrobeLists(enabled = true): WardrobeLists {
     if (!userId || !enabled) return;
     const supabase = getSupabase();
     Promise.all([
-      supabase.from("categories").select("id, name, role, position").order("position"),
-      supabase.from("groupings").select("id, name, position").order("position").order("name"),
+      supabase.from(QUERIES.category.table).select(QUERIES.category.select).order("position"),
+      supabase.from(QUERIES.grouping.table).select(QUERIES.grouping.select).order("position").order("name"),
     ]).then(([categoriesResult, groupingsResult]) => {
       if (categoriesResult.error || groupingsResult.error) return setLoadError(true);
       setCategories(categoriesResult.data as Category[]);
@@ -180,7 +181,7 @@ function NewGrouping({ position, onCreated }: { position: number; onCreated: (gr
     const { data, error } = await getSupabase()
       .from("groupings")
       .insert({ name: trimmed, position })
-      .select("id, name, position")
+      .select(QUERIES.grouping.select)
       .single();
     setPending(false);
     if (error) {

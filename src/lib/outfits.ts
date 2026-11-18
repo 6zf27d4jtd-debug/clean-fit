@@ -1,5 +1,6 @@
-import { getSupabase } from "@/lib/supabase/client";
 import type { Slot } from "@/lib/outfit";
+import { QUERIES } from "@/lib/queries";
+import { getSupabase } from "@/lib/supabase/client";
 
 export type OutfitPiece = { slot: Slot; itemId: string };
 
@@ -9,7 +10,11 @@ export type OutfitPiece = { slot: Slot; itemId: string };
  */
 export async function saveOutfit(pieces: OutfitPiece[], wornOn: string) {
   const supabase = getSupabase();
-  const { data, error } = await supabase.from("outfits").insert({ worn_on: wornOn }).select("id").single();
+  const { data, error } = await supabase
+    .from("outfits")
+    .insert({ worn_on: wornOn })
+    .select(QUERIES.outfitId.select)
+    .single();
   if (error) throw error;
   const { error: itemsError } = await supabase
     .from("outfit_items")

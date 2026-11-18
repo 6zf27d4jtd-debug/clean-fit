@@ -8,6 +8,7 @@ import { BackLink, ItemGridSkeleton, PageHeader } from "@/components/page-header
 import { useFavoriteToggle, useLaundryToggle } from "@/lib/item-toggles";
 import { countLabel } from "@/lib/format";
 import { usePhotoUrls } from "@/lib/photo-urls";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category, Item } from "@/lib/types";
 
@@ -24,10 +25,8 @@ export function CategoryView({ params }: { params: Promise<{ id: string }> }) {
     if (!userId) return;
     const supabase = getSupabase();
     Promise.all([
-      supabase.from("categories").select("id, name, role, position").eq("id", id).maybeSingle(),
-      supabase
-        .from("items")
-        .select("id, front_path, favorite, in_laundry_since")
+      supabase.from(QUERIES.category.table).select(QUERIES.category.select).eq("id", id).maybeSingle(),
+      supabase.from(QUERIES.itemCard.table).select(QUERIES.itemCard.select)
         .eq("category_id", id)
         .order("created_at", { ascending: false }),
     ]).then(([categoryResult, itemsResult]) => {

@@ -12,6 +12,7 @@ import { requestFavorite, requestLaundry } from "@/lib/item-toggles";
 import { deleteItem, updateItem } from "@/lib/items";
 import { dayLabel, OUTFIT_ROLES } from "@/lib/outfit";
 import { forgetPhotoUrls, usePhotoUrls } from "@/lib/photo-urls";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category, Grouping, Item } from "@/lib/types";
 
@@ -30,19 +31,11 @@ type ItemRow = Item & { category: Category | null; item_groupings: { grouping_id
 async function fetchItem(id: string): Promise<Loaded | "assente" | "rete"> {
   const supabase = getSupabase();
   const [itemResult, groupingsResult, wornResult] = await Promise.all([
-    supabase
-      .from("items")
-      .select(
-        "id, category_id, front_path, back_path, color, notes, favorite, created_at, in_laundry_since, " +
-          "category:categories(id, name, role, position), item_groupings(grouping_id)",
-      )
-      .eq("id", id)
+    supabase.from(QUERIES.itemDetail.table).select(QUERIES.itemDetail.select).eq("id", id)
       .maybeSingle(),
-    supabase.from("groupings").select("id, name, position").order("position").order("name"),
+    supabase.from(QUERIES.grouping.table).select(QUERIES.grouping.select).order("position").order("name"),
     // Outfit che contengono il capo: il più recente, e quanti sono in tutto
-    supabase
-      .from("outfits")
-      .select("worn_on, outfit_items!inner(item_id)", { count: "exact" })
+    supabase.from(QUERIES.itemWorn.table).select(QUERIES.itemWorn.select, { count: "exact" })
       .eq("outfit_items.item_id", id)
       .order("worn_on", { ascending: false })
       .limit(1),

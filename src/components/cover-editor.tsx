@@ -8,6 +8,7 @@ import { ChevronRightIcon } from "@/components/icons";
 import { setCover, uploadCoverPhoto, type Cover, type CoverTable } from "@/lib/covers";
 import type { CropRect } from "@/lib/photo";
 import { usePhotoUrls } from "@/lib/photo-urls";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase } from "@/lib/supabase/client";
 
 type CoverItem = { id: string; front_path: string };
@@ -45,10 +46,10 @@ export function CoverEditor({
     const supabase = getSupabase();
     const query =
       table === "categories"
-        ? supabase.from("items").select("id, front_path").eq("category_id", ownerId)
+        ? supabase.from(QUERIES.itemPhoto.table).select(QUERIES.itemPhoto.select).eq("category_id", ownerId)
         : supabase
-            .from("items")
-            .select("id, front_path, item_groupings!inner(grouping_id)")
+            .from(QUERIES.groupItemPhoto.table)
+            .select(QUERIES.groupItemPhoto.select)
             .eq("item_groupings.grouping_id", ownerId);
     query.order("created_at", { ascending: false }).then(({ data, error }) => {
       if (error) return setMessage("Impossibile caricare i capi. Controlla la connessione.");

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase, PHOTO_BUCKET } from "@/lib/supabase/client";
 
 const sectionTitle = "text-[13px] font-medium tracking-wide text-muted uppercase";
@@ -12,9 +13,7 @@ export function RecentDaysSetting() {
 
   useEffect(() => {
     if (!userId) return;
-    getSupabase()
-      .from("profiles")
-      .select("recent_days")
+    getSupabase().from(QUERIES.profileRecentDays.table).select(QUERIES.profileRecentDays.select)
       .eq("id", userId)
       .single()
       .then(({ data }) => setDays(data?.recent_days ?? 7));

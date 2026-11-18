@@ -10,6 +10,7 @@ import { useFavoriteToggle, useLaundryToggle } from "@/lib/item-toggles";
 import type { Cover } from "@/lib/covers";
 import { countLabel } from "@/lib/format";
 import { usePhotoUrls } from "@/lib/photo-urls";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Grouping, Item } from "@/lib/types";
 
@@ -28,10 +29,12 @@ export function GroupView({ params }: { params: Promise<{ id: string }> }) {
     const supabase = getSupabase();
     // Gruppo e capi insieme; i capi filtrati dal collegamento con il gruppo (una richiesta, niente elenchi di id)
     const [groupResult, itemsResult] = await Promise.all([
-      supabase.from("groupings").select("id, name, position, cover_item_id, cover_photo_path").eq("id", id).maybeSingle(),
       supabase
-        .from("items")
-        .select("id, front_path, favorite, in_laundry_since, item_groupings!inner(grouping_id)")
+        .from(QUERIES.groupingWithCover.table)
+        .select(QUERIES.groupingWithCover.select)
+        .eq("id", id)
+        .maybeSingle(),
+      supabase.from(QUERIES.groupItemCard.table).select(QUERIES.groupItemCard.select)
         .eq("item_groupings.grouping_id", id)
         .order("created_at", { ascending: false }),
     ]);

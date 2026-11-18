@@ -9,6 +9,7 @@ import { BackLink, PageHeader } from "@/components/page-header";
 import { ROLE_LABELS, type CategoryRole } from "@/lib/categories";
 import { deleteCoverPhoto, type Cover } from "@/lib/covers";
 import { countLabel } from "@/lib/format";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category } from "@/lib/types";
 
@@ -28,8 +29,8 @@ export function CategoryManager() {
 
   const load = useCallback(async () => {
     const { data, error } = await getSupabase()
-      .from("categories")
-      .select("id, name, role, position, underlayer, cover_item_id, cover_photo_path, items(count)")
+      .from(QUERIES.categoryWithCount.table)
+      .select(QUERIES.categoryWithCount.select)
       .order("position");
     if (error) return setError(true);
     setCategories(data as CategoryWithCount[]);

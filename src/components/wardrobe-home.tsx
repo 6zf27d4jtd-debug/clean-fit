@@ -9,6 +9,7 @@ import { useFavoriteToggle } from "@/lib/item-toggles";
 import { countLabel } from "@/lib/format";
 import { emptyLaundry } from "@/lib/items";
 import { usePhotoUrls } from "@/lib/photo-urls";
+import { QUERIES } from "@/lib/queries";
 import { getSupabase } from "@/lib/supabase/client";
 import type { Category, Item } from "@/lib/types";
 
@@ -34,14 +35,10 @@ export function WardrobeHome() {
     const supabase = getSupabase();
     Promise.all([
       supabase.rpc("category_summaries"),
-      supabase
-        .from("items")
-        .select("id, front_path, favorite, in_laundry_since")
+      supabase.from(QUERIES.itemCard.table).select(QUERIES.itemCard.select)
         .eq("favorite", true)
         .order("created_at", { ascending: false }),
-      supabase
-        .from("items")
-        .select("id, front_path")
+      supabase.from(QUERIES.itemPhoto.table).select(QUERIES.itemPhoto.select)
         .not("in_laundry_since", "is", null)
         .order("in_laundry_since", { ascending: true }),
     ]).then(([categoriesResult, favoritesResult, laundryResult]) => {
