@@ -1,0 +1,9 @@
+#!/bin/sh
+# Prima di ogni push (ogni push su main pubblica su Vercel) prova le query dell'app sul database.
+# Attivazione, una volta per copia del repository: git config core.hooksPath .githooks
+# Per saltarlo in un'emergenza: git push --no-verify
+PATH="/usr/local/bin:$PATH"
+if ! npm run --silent check:db; then
+  echo "Push annullato: npm run check:db ha trovato problemi (vedi sopra)." >&2
+  exit 1
+fi
