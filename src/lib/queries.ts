@@ -50,6 +50,8 @@ export const QUERIES = {
   grouping: { table: "groupings", select: "id, name, position" },
   groupingWithCover: { table: "groupings", select: "id, name, position, cover_item_id, cover_photo_path" },
   profileRecentDays: { table: "profiles", select: "recent_days" },
+  /** Eliminazione dell'account avviata e non finita (migrazione 0012). */
+  profileDeletion: { table: "profiles", select: "deletion_requested_at" },
   /** Storico: outfit indossati con i loro capi. */
   history: { table: "outfits", select: "id, worn_on, outfit_items(slot, item:items(id, front_path))" },
   /** Id dell'outfit appena salvato nello Storico. */
@@ -67,4 +69,11 @@ export const QUERIES = {
  * Funzioni di sola lettura chiamate dall'app senza parametri: il controllo verifica che esistano. Quelle che
  * modificano dati (save_outfit, update_item, delete_account…) non vengono mai chiamate dal controllo.
  */
-export const READ_FUNCTIONS = ["category_summaries", "grouping_summaries", "is_admin", "list_invites"] as const;
+export const READ_FUNCTIONS = [
+  "category_summaries",
+  "grouping_summaries",
+  "is_admin",
+  "list_invites",
+  "my_photo_paths",
+  "account_deletion_requested",
+] as const;

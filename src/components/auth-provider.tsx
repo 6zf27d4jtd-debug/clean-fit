@@ -3,6 +3,7 @@
 import type { User } from "@supabase/supabase-js";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { DeletionGate } from "@/components/deletion-gate";
 import { clearPhotoUrlCache } from "@/lib/photo-urls";
 import { getSupabase } from "@/lib/supabase/client";
 
@@ -112,6 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       >
         {waiting && <Splash />}
         <div hidden={waiting}>{children}</div>
+        {/* Eliminazione dell'account avviata e non finita: la riprende, coprendo l'app */}
+        {!waiting && state.user && <DeletionGate key={state.user.id} userId={state.user.id} />}
       </RecoveryContext.Provider>
     </AuthContext.Provider>
   );

@@ -12,7 +12,7 @@ export default function PrivacyPage() {
   return (
     <div className="pb-10">
       <PrivacyBackLink />
-      <PageHeader title="Privacy" subtitle="Ultimo aggiornamento: 2 novembre 2026" />
+      <PageHeader title="Privacy" subtitle="Ultimo aggiornamento: 19 novembre 2026" />
 
       <div className="space-y-8 text-[15px] leading-relaxed">
         <Section title="Chi gestisce l’app">
@@ -90,7 +90,8 @@ export default function PrivacyPage() {
           <p>
             Nell’app apri <strong className="font-semibold">Profilo → Elimina account</strong> e conferma con “Elimina
             tutto”. Vengono cancellati subito l’account, tutti i capi, le foto, gli outfit e lo storico. Non si può
-            annullare.
+            annullare. Se l’eliminazione si interrompe (per esempio perché manca la connessione), riprende da sola
+            alla prossima apertura dell’app e l’account viene eliminato solo quando non resta nessuna foto.
           </p>
           <p>
             Se non riesci più ad accedere, scrivi a{" "}

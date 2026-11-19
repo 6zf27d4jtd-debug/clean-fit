@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useUser } from "@/components/auth-provider";
+import { DELETION_EVENT, runAccountDeletion, type DeletionStep } from "@/lib/account-deletion";
 import { QUERIES } from "@/lib/queries";
-import { getSupabase, PHOTO_BUCKET } from "@/lib/supabase/client";
+import { getSupabase } from "@/lib/supabase/client";
 
 const sectionTitle = "text-[13px] font-medium tracking-wide text-muted uppercase";
 
@@ -13,7 +14,9 @@ export function RecentDaysSetting() {
 
   useEffect(() => {
     if (!userId) return;
-    getSupabase().from(QUERIES.profileRecentDays.table).select(QUERIES.profileRecentDays.select)
+    getSupabase()
+      .from(QUERIES.profileRecentDays.table)
+      .select(QUERIES.profileRecentDays.select)
       .eq("id", userId)
       .single()
       .then(({ data }) => setDays(data?.recent_days ?? 7));
@@ -53,28 +56,12 @@ export function RecentDaysSetting() {
   );
 }
 
-/** Tutti i file sotto una cartella dello Storage, sottocartelle comprese (l'elenco dello Storage è di un livello). */
-async function listFolder(prefix: string): Promise<string[]> {
-  const bucket = getSupabase().storage.from(PHOTO_BUCKET);
-  const paths: string[] = [];
-  const pageSize = 1000;
-  for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await bucket.list(prefix, { limit: pageSize, offset });
-    if (error) throw error;
-    for (const entry of data) {
-      // Le cartelle non hanno id
-      if (entry.id) paths.push(`${prefix}/${entry.name}`);
-      else paths.push(...(await listFolder(`${prefix}/${entry.name}`)));
-    }
-    if (data.length < pageSize) return paths;
-  }
-}
-
 export function AccountSection() {
   const user = useUser();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<DeletionStep | null>(null);
 
   async function signOut() {
     setPending(true);
@@ -85,29 +72,17 @@ export function AccountSection() {
     if (!user) return;
     setPending(true);
     setError(null);
-    const supabase = getSupabase();
-
-    // Prima le foto (lo Storage non si svuota a cascata), poi l'utente con tutti i suoi dati. Si svuota tutta la
-    // cartella dell'utente, non solo le foto dei capi: anche i file rimasti da salvataggi interrotti.
-    let paths: string[];
     try {
-      paths = await listFolder(user.id);
-    } catch {
-      return fail();
+      // Foto, poi account (src/lib/account-deletion.ts). Alla fine l'uscita dall'account porta su Accedi.
+      await runAccountDeletion(setStep);
+    } catch (failure) {
+      console.warn("Eliminazione dell'account non completata", failure);
+      setPending(false);
+      setStep(null);
+      // Se l'eliminazione era già avviata, la schermata di ripresa la porta a termine (anche alla prossima apertura)
+      window.dispatchEvent(new Event(DELETION_EVENT));
+      setError("Non è stato possibile eliminare l’account. Riprova quando sei online.");
     }
-    for (let start = 0; start < paths.length; start += 100) {
-      const { error } = await supabase.storage.from(PHOTO_BUCKET).remove(paths.slice(start, start + 100));
-      if (error) return fail();
-    }
-
-    const { error: deleteError } = await supabase.rpc("delete_account");
-    if (deleteError) return fail();
-    await supabase.auth.signOut({ scope: "local" });
-  }
-
-  function fail() {
-    setError("Non è stato possibile eliminare l’account. Riprova quando sei online.");
-    setPending(false);
   }
 
   return (
@@ -133,6 +108,7 @@ export function AccountSection() {
             Verranno eliminati per sempre l’account, tutti i capi, le foto e lo storico degli outfit.
           </p>
           {error && <p className="text-[15px] text-red-600 dark:text-red-400">{error}</p>}
+          {pending && <p className="text-[14px] text-muted">Non chiudere l’app finché non è finita.</p>}
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -148,7 +124,7 @@ export function AccountSection() {
               disabled={pending}
               className="h-12 rounded-xl bg-red-600 text-[15px] font-semibold text-white disabled:opacity-50"
             >
-              {pending ? "Elimino…" : "Elimina tutto"}
+              {pending ? (step === "account" ? "Elimino l’account…" : "Elimino le foto…") : "Elimina tutto"}
             </button>
           </div>
         </div>
