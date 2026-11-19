@@ -15,9 +15,31 @@ const BATCH = 100;
 const ATTEMPTS = 3;
 /** Avvisa la schermata di ripresa (DeletionGate) che un'eliminazione è avviata ma non finita. */
 export const DELETION_EVENT = "cleanfit:eliminazione";
+/**
+ * Utente per cui questo telefono ha avviato l'eliminazione: se all'apertura il controllo non arriva al database
+ * (niente rete, timeout), la schermata mostra comunque "Riprova" invece dell'app.
+ */
+const STARTED_KEY = "cleanfit:eliminazione-avviata";
+
+function rememberStarted(userId: string | null) {
+  try {
+    if (userId) localStorage.setItem(STARTED_KEY, userId);
+    else localStorage.removeItem(STARTED_KEY);
+  } catch {}
+}
+
+export function deletionStartedHere(userId: string) {
+  try {
+    return localStorage.getItem(STARTED_KEY) === userId;
+  } catch {
+    return false;
+  }
+}
 
 export async function runAccountDeletion(onStep?: (step: DeletionStep) => void) {
   const supabase = getSupabase();
+  const { data: session } = await supabase.auth.getSession();
+  if (session.session) rememberStarted(session.session.user.id);
   const { error: startError } = await supabase.rpc("start_account_deletion");
   if (startError) throw startError;
 
@@ -36,6 +58,7 @@ export async function runAccountDeletion(onStep?: (step: DeletionStep) => void) 
     if (!deleteError) {
       // L'utente non esiste più: il server può rispondere con un errore, ma la sessione sul telefono si chiude lo stesso
       await supabase.auth.signOut({ scope: "local" });
+      rememberStarted(null);
       return;
     }
     // Un file arrivato nel frattempo (caricamento già partito prima dell'avvio): si rifà l'elenco
@@ -44,13 +67,26 @@ export async function runAccountDeletion(onStep?: (step: DeletionStep) => void) 
   throw new Error("Nella cartella restano delle foto");
 }
 
-/** Eliminazione avviata e non ancora finita per questo utente. */
+/**
+ * Eliminazione avviata e non ancora finita per questo utente. Senza profilo l'account non esiste più (il profilo
+ * nasce con l'utente e sparisce con lui): succede se la risposta di delete_account si è persa. Il token sul telefono
+ * vale ancora fino a un'ora, quindi si esce qui dall'account invece di mostrare un armadio vuoto.
+ */
 export async function isDeletionPending(userId: string) {
-  const { data, error } = await getSupabase()
+  const supabase = getSupabase();
+  const { data, error } = await supabase
     .from(QUERIES.profileDeletion.table)
     .select(QUERIES.profileDeletion.select)
     .eq("id", userId)
     .maybeSingle();
+  // Errore di rete, timeout o risposta d'errore: non si sa niente, quindi non si esce (la schermata mostra "Riprova")
   if (error) throw error;
-  return !!data?.deletion_requested_at;
+  // Solo una risposta vera di Supabase senza righe vuol dire "profilo eliminato"
+  if (!data) {
+    await supabase.auth.signOut({ scope: "local" });
+    rememberStarted(null);
+    return false;
+  }
+  if (!data.deletion_requested_at) rememberStarted(null);
+  return !!data.deletion_requested_at;
 }

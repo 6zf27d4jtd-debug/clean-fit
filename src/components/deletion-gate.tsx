@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DELETION_EVENT, isDeletionPending, runAccountDeletion, type DeletionStep } from "@/lib/account-deletion";
+import {
+  DELETION_EVENT,
+  deletionStartedHere,
+  isDeletionPending,
+  runAccountDeletion,
+  type DeletionStep,
+} from "@/lib/account-deletion";
 
 type GateState = "nessuna" | DeletionStep | "errore";
 
@@ -26,7 +32,8 @@ export function DeletionGate({ userId }: { userId: string }) {
       // Finita: l'uscita dall'account porta su Accedi
     } catch (error) {
       console.warn("Eliminazione dell'account non completata", error);
-      setState((current) => (current === "nessuna" ? current : "errore"));
+      // Controllo non riuscito all'apertura: "Riprova" solo se l'eliminazione era già in corso o avviata da qui
+      setState((current) => (current === "nessuna" && !deletionStartedHere(userId) ? current : "errore"));
     } finally {
       running.current = false;
     }
